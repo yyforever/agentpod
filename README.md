@@ -80,10 +80,12 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 
 | Document | Description |
 |----------|-------------|
+| [Docs Index](docs/index.md) | Documentation navigation |
 | [Architecture](docs/architecture.md) | Technical architecture deep dive (Chinese) |
-| [Agent Adapter](docs/agent-adapter.md) | Adapter interface spec + development guide |
-| [Research](docs/research.md) | Competitive research + PaaS architecture comparison |
-| [Roadmap](docs/roadmap.md) | Implementation roadmap + technical decision records |
+| [Adapter Spec](docs/adapter-spec.md) | Adapter interface spec + development guide |
+| [Roadmap](docs/roadmap.md) | Implementation roadmap |
+| [ADR](docs/adr.md) | Technical decision records |
+| [Research](docs/research/README.md) | Research hub and reports |
 
 ## Quick Start
 

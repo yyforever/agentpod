@@ -2,6 +2,12 @@
 
 > 基于 2026-02-15 五路并行 Agent 深度调研，覆盖 40+ 竞品。
 
+## 相关深度研究
+
+- [OpenClaw 内部架构深度研究](openclaw-internals.md)
+- [多租户编排模式研究](multi-tenant-patterns.md)
+- [Dashboard 技术栈研究](dashboard-stack.md)
+
 ## 市场概览
 
 AI Agent 市场 2025 年达 $7.6B，预计年增长率 49.6%，到 2030 年达 $52.6B。赛道分五层:

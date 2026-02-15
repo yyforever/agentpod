@@ -74,7 +74,7 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 - **Reverse Proxy**: Traefik v3 (Docker label auto-discovery)
 - **Container Runtime**: Docker API (direct, single-node MVP)
 - **Auth**: NextAuth v5 (admin only)
-- **Real-time**: WebSocket (native)
+- **Real-time**: SSE (Dashboard status push) + WebSocket (Agent health heartbeat)
 
 ## Documentation
 
@@ -85,6 +85,7 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 | [Adapter Spec](docs/adapter-spec.md) | Adapter interface spec + development guide |
 | [Roadmap](docs/roadmap.md) | Implementation roadmap |
 | [ADR](docs/adr.md) | Technical decision records |
+| [PRD](docs/prd/PRD.md) | Product requirements document (Chinese) |
 | [Research](docs/research/README.md) | Research hub and reports |
 
 ## Quick Start

@@ -1,6 +1,6 @@
 # 02 - 痛点验证与优先级排序
 
-> AgentPod PRD 系列文档 | Step 2/5
+> AgentPod PRD 系列文档 | 分册 2/4
 > 依赖：01-user-personas-and-scenarios.md
 
 ---

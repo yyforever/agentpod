@@ -1,6 +1,6 @@
 # 03 - 竞品深度分析与差异化定位
 
-> AgentPod PRD 系列文档 | Step 3/5
+> AgentPod PRD 系列文档 | 分册 3/4
 > 依赖：01-user-personas-and-scenarios.md, 02-pain-points-validation.md
 
 ---

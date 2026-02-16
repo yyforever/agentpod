@@ -7,6 +7,8 @@
 - [OpenClaw 内部架构深度研究](openclaw-internals.md)
 - [多租户编排模式研究](multi-tenant-patterns.md)
 - [Dashboard 技术栈研究](dashboard-stack.md)
+- [OpenClaw 多租户部署场景深度研究](openclaw-multi-tenant-use-cases.md)
+- [自托管 PaaS 平台竞品深度技术分析](competitive-analysis-self-hosted-paas.md)
 
 ## 市场概览
 

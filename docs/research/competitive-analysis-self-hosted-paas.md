@@ -998,7 +998,7 @@ Week 7-8:  监控和优化 → 准备上线
 - [How to Size Your Traefik Hub API Gateway Instances](https://traefik.io/blog/how-to-size-your-traefik-hub-api-gateway-instances)
 
 ### 9.5 OpenClaw
-- [OpenClaw 内部架构深度研究](/Users/yangyang/Github/agentpod/docs/research/openclaw-internals.md)
+- [OpenClaw 内部架构深度研究](openclaw-internals.md)
 - [What is OpenClaw: Self-Hosted AI Agent Guide | Contabo Blog](https://contabo.com/blog/what-is-openclaw-self-hosted-ai-agent-guide/)
 - [GitHub - openclaw/openclaw](https://github.com/openclaw/openclaw)
 

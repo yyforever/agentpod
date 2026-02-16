@@ -50,10 +50,10 @@ agentpod/
 - [ ] 实现 Docker API 封装 (createContainer / start / stop / rm / inspect)
 - [ ] 搭建 PostgreSQL + 执行 schema migration
 - [ ] 实现调和引擎 (Reconciliation Loop, 30s 间隔)
-- [ ] 实现 REST API: `POST /pods`, `GET /pods`, `DELETE /pods/:id`
+- [ ] 实现 REST API: `POST /tenants`, `GET /tenants`, `POST /pods`, `GET /pods`, `DELETE /pods/:id`
 - [ ] **验证 Traefik + Bridge 网络 WebSocket pairing**（关键风险点）
 
-**交付物**: CLI 可以 `curl POST /pods` 创建一个 OpenClaw 租户容器，自动分配子域名，通过 Traefik 访问
+**交付物**: CLI 可以 `agentpod tenant create` + `agentpod pod create` 创建 OpenClaw 租户实例，自动分配子域名，通过 Traefik 访问
 
 ### Week 3-4: Dashboard
 
@@ -62,7 +62,7 @@ agentpod/
 - [ ] Pod 列表页 (状态、Agent 类型、子域名链接)
 - [ ] 创建 Pod 页面 (选 Agent 类型 -> 根据 configSchema 渲染表单)
 - [ ] Pod 详情页 (状态、日志、配置编辑、重启/删除按钮)
-- [ ] WebSocket 实时状态推送
+- [ ] SSE 实时状态推送（Dashboard）+ WebSocket 健康心跳检测
 
 **交付物**: 通过 Web Dashboard 管理 OpenClaw 租户的完整生命周期
 

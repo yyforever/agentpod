@@ -71,21 +71,28 @@
 
 ---
 
-### ADR-005: 反向代理选择 Traefik v3
+### ADR-005: 反向代理选择 Traefik v3.4+
 
-**状态**: 已决定
+**状态**: 已决定（2026-02-16 经深度调研确认）
 
-**上下文**: 多租户子域名路由需要反向代理。
+**上下文**: 多租户子域名路由需要反向代理，WebSocket 长连接稳定性是核心需求。
 
-**决策**: Traefik v3
+**决策**: Traefik v3.4+（锁定版本，避开 v3.2.4/v3.3.0 WebSocket 回归）
 
 **理由**:
-- Docker label 自动发现，新增 Pod 无需重写配置文件
-- WebSocket 原生支持
-- Let's Encrypt 自动 HTTPS
-- Coolify 也用 Traefik，验证了多租户可行性
+- Docker label 自动发现（事件驱动，即时生效），新增/删除 Pod 无需重写配置
+- **增量路由更新**：配置变更只影响变更的路由，现有 WebSocket 连接不受影响
+- WebSocket 原生支持，v3 修复了 `X-Forwarded-Proto` 非标准值问题
+- Let's Encrypt 自动 HTTPS，支持通配符证书
+- Coolify (40K+ stars) 使用 Traefik v3.6，验证了多租户可行性
 
-**备选**: Caddy (更简单但自动发现弱), Nginx (需要手动配置 reload)
+**为什么不选 Caddy**:
+Caddy 的 WebSocket 零配置很优秀，但有致命缺陷：**任何容器配置变更触发全量重载，导致所有租户的所有 WebSocket 连接断开**（Coolify GitHub #7942）。对于频繁创建/删除容器的多租户平台，这是不可接受的。
+
+**为什么不选 Nginx**:
+nginx-proxy 基于 docker-gen 重新生成配置并 reload，reload 期间会短暂中断连接。且 Safari + HTTPS + WebSocket 有已知兼容性问题。
+
+**版本策略**: 锁定具体版本号，升级前必须在测试环境验证 WebSocket 连接（v3.2.4 曾引入回归 #11405）。
 
 ---
 
@@ -123,3 +130,24 @@
 - 生命周期钩子支持复杂逻辑
 
 **备选**: YAML 模板 (简单但无钩子逻辑)
+
+---
+
+### ADR-008: Docker 网络选择自定义 Bridge
+
+**状态**: 已决定（2026-02-16 经深度调研确认）
+
+**上下文**: 多租户容器需要网络连通方案。Host 网络在 VPS 实战中可解决 WebSocket pairing，但有端口冲突问题。
+
+**决策**: 自定义 Bridge 网络（`agentpod-net`），MVP 共享单一网络，Phase 2 可演进为每租户独立网络。
+
+**理由**:
+- Docker 内置 DNS 解析，容器间可按名称互访
+- 每个容器独立网络命名空间，相同内部端口无冲突（多租户核心需求）
+- Traefik 通过 Docker label + 内部 IP 路由，无需暴露宿主端口
+- 所有生产级平台（Coolify、CapRover、Dokku）均采用此方案
+
+**为什么不选 Host 网络**: 端口冲突致命——50 个 Agent 容器无法共享宿主端口空间。
+**为什么不选 Macvlan**: 依赖物理网络配置，多数 VPS 不支持。
+
+**演进路径**: MVP 单一共享网络 → Phase 2 每租户独立 Bridge + Traefik 多网络连接（租户间网络隔离）。

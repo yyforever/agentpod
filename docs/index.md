@@ -10,8 +10,7 @@
 ## PRD 文档
 
 - [prd/PRD.md](prd/PRD.md): 产品需求文档（整合版）
-- [prd/01-user-personas-and-scenarios.md](prd/01-user-personas-and-scenarios.md): 用户画像与场景分析
-- [prd/02-pain-points-validation.md](prd/02-pain-points-validation.md): 痛点验证与优先级排序
+- [prd/01-user-and-market-research.md](prd/01-user-and-market-research.md): 用户画像、市场调研与痛点验证
 - [prd/03-competitive-analysis.md](prd/03-competitive-analysis.md): 竞品深度分析与差异化定位
 - [prd/04-engineering-design.md](prd/04-engineering-design.md): 验证闭环与工程设计
 

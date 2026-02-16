@@ -36,8 +36,8 @@ AI Agent 市场 2025 年达 $7.6B，预计年增长率 49.6%，到 2030 年达 $
 |  LobeChat (72K stars) | AnythingLLM | LibreChat           |
 +----------------------------------------------------------+
               ^
-         AgentPod 定位: Layer 1.5
-         = Layer 1 的 Agent 能力 + 多租户编排框架层
+         AgentPod 定位: 垂直 Agent 编排层
+         = Layer 1 的 Agent 能力 + 多租户编排与交付框架
 ```
 
 ## 关键竞品
@@ -71,7 +71,7 @@ AI Agent 市场 2025 年达 $7.6B，预计年增长率 49.6%，到 2030 年达 $
 | **多节点通信** | SSH (OpenSSH) | Docker Swarm | k3s | Agent (Go, gRPC) |
 | **反向代理** | Traefik v3 / Caddy | Nginx | 可插拔 | 不管 |
 | **插件系统** | 服务模板 (JSON) | One-Click App (YAML) | plugn (Go) | 多 runtime |
-| **Stars** | ~35K | ~13K | ~30K | ~32K |
+| **Stars** | ~40K | ~13K | ~30K | ~32K |
 
 ## AgentPod 从每个参考项目学什么
 

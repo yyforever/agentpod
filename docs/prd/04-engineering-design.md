@@ -1,6 +1,6 @@
 # 04 - 验证闭环与工程设计
 
-> AgentPod PRD 系列文档 | 分册 3/3
+> AgentPod PRD 子文档 04
 > 依赖：01 ~ 03 文档
 > 方法论来源：Peter Steinberger 闭环工程实践
 
@@ -131,7 +131,7 @@ $ agentpod pod list --format json
 
 | ID | 假设 | 置信度 | 阻塞级别 | 验证方法 | 验证时机 |
 |----|------|--------|----------|----------|----------|
-| **TH-1** | Traefik 能正确转发 WebSocket 到 Bridge 网络中的 OpenClaw 容器 | 🔴 低 | **P0 阻塞** | PoC：1 Traefik + 1 OpenClaw + Bridge 网络 | Week 0 |
+| **TH-1** | Traefik v3.4+ 能正确转发 WebSocket 到 Bridge 网络中的 Agent 容器 | 🟡 中 | **P0 阻塞** | PoC：1 Traefik + 1 OpenClaw + Bridge 网络 + allowedOrigins 配置 | Week 0 |
 | **TH-2** | 单台 4GB VPS 可运行 20 个 OpenClaw 容器 | 🟡 中 | P1 | 压测：逐步增加容器数，监控 RSS/CPU | Week 1 |
 | **TH-3** | Reconciliation Loop 30s 周期不会产生性能瓶颈 | 🟢 高 | P2 | 单元测试 + 50 容器压测 | Week 2 |
 | **TH-4** | dockerode 库可稳定管理 50+ 容器生命周期 | 🟢 高 | P2 | 集成测试 | Week 2 |
@@ -150,28 +150,40 @@ $ agentpod pod list --format json
 
 **TH-1: WebSocket + Traefik + Bridge 网络验证**
 
+> 深度调研结论："pairing required" 是 OpenClaw Gateway 应用层的 Origin/Host 校验失败，不是网络层问题。通过配置即可解决，通过概率高。
+
 ```
 验证环境:
-  - 1 × Traefik v3 容器（Bridge 网络）
-  - 1 × OpenClaw 容器（Bridge 网络，同一网络）
-  - 配置 Traefik 路由规则（Host header 匹配）
+  - 1 × Traefik v3.4+ 容器（自定义 Bridge 网络 agentpod-net）
+  - 1 × OpenClaw 容器（同一 Bridge 网络，bind 0.0.0.0）
+  - Traefik 配置：passHostHeader（默认开启）、readTimeout=0、writeTimeout=0
+  - OpenClaw 配置：gateway.controlUi.allowedOrigins 包含子域名
+
+关键配置:
+  - Docker label: traefik.docker.network=agentpod-net（避免多网络时随机选错）
+  - Traefik entrypoint: readTimeout=0, writeTimeout=0（支持 WebSocket 长连接）
+  - 不挂 gzip/buffering/retry middleware 到 WebSocket 路由（Coolify #4002 教训）
+  - 应用层心跳必须实现（Traefik ping/pong 超时检测不可靠）
 
 验证步骤:
-  1. 启动 Traefik + OpenClaw（Bridge 网络）
-  2. 通过 Traefik 发起 WebSocket 连接到 OpenClaw Gateway
-  3. 发送 "connect" 帧，验证 Gateway 响应
-  4. 验证无 "pairing required" 错误
-  5. 保持连接 5 分钟，验证无断开
+  1. 创建自定义 Bridge 网络 agentpod-net
+  2. 启动 Traefik v3.4+（配置 Docker provider + 超时参数）
+  3. 启动 OpenClaw（bind 0.0.0.0 + allowedOrigins 配置）
+  4. 通过 Traefik 子域名发起 WebSocket 连接
+  5. 发送 "connect" 帧，验证 Gateway 响应
+  6. 验证无 "pairing required" 错误
+  7. 保持连接 10 分钟，验证无断开
 
 成功标准:
   ✅ WebSocket 握手成功
   ✅ "connect" 帧收到正常 response
-  ✅ 5 分钟无断连
+  ✅ 10 分钟无断连
   ✅ Gateway 日志无 pairing 警告
+  ✅ 新增/删除其他容器时，现有 WebSocket 连接不受影响
 
-失败应对:
-  方案 A: 配置 Traefik X-Forwarded-For / Origin header
-  方案 B: 配置 OpenClaw allowedOrigins 白名单
+失败应对（按顺序尝试）:
+  方案 A: 调整 Traefik Headers middleware 显式设置 X-Forwarded-Proto=https
+  方案 B: 扩大 OpenClaw allowedOrigins 白名单范围
   方案 C: 设置 allowInsecureAuth: true（降级方案）
   方案 D: 如果全部失败 → 重新评估网络架构
 ```

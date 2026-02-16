@@ -51,7 +51,7 @@ agentpod/
 - [ ] 搭建 PostgreSQL + 执行 schema migration
 - [ ] 实现调和引擎 (Reconciliation Loop, 30s 间隔)
 - [ ] 实现 REST API: `POST /tenants`, `GET /tenants`, `POST /pods`, `GET /pods`, `DELETE /pods/:id`
-- [ ] **验证 Traefik + Bridge 网络 WebSocket pairing**（关键风险点）
+- [ ] **验证 Traefik v3.4+ Bridge 网络 WebSocket**（配置验证：allowedOrigins + bind 0.0.0.0 + passHostHeader）
 
 **交付物**: CLI 可以 `agentpod tenant create` + `agentpod pod create` 创建 OpenClaw 租户实例，自动分配子域名，通过 Traefik 访问
 

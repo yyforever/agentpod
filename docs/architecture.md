@@ -172,22 +172,53 @@ CREATE TABLE pod_events (
 );
 ```
 
-## 反向代理: Traefik
+## 反向代理: Traefik v3.4+
 
 ### 为什么选 Traefik
 
-- **Docker 原生集成**: 通过 container labels 自动发现服务，新增/删除 Pod 无需重写配置
-- **WebSocket 开箱支持**: OpenClaw Control UI 依赖 WebSocket
-- **自动 HTTPS**: 集成 Let's Encrypt，每个子域名自动申请/续期证书
+- **Docker 原生集成**: 通过 container labels 自动发现服务，事件驱动即时生效，新增/删除 Pod 无需重写配置
+- **增量路由更新**: 配置变更只影响变更的路由，不影响其他连接（Caddy 的致命缺陷：任何容器变更触发全量重载，导致所有 WebSocket 连接断开）
+- **WebSocket 开箱支持**: 自动处理 `Upgrade`/`Connection` header，v3 修复了 `X-Forwarded-Proto` 非标准值（v2 发 `wss`，v3 正确发 `https`）
+- **自动 HTTPS**: 集成 Let's Encrypt，支持通配符证书（DNS challenge），每个子域名自动申请/续期
 - **动态配置**: 新增 Pod 容器时无需重启 Traefik
 
-> Coolify (30K+ stars) 也选了 Traefik 作为默认代理，验证了这个选择在多租户场景下的可行性。
+> Coolify (40K+ stars) 使用 Traefik v3.6 作为默认代理，验证了这个选择在多租户场景下的可行性。
+
+### 版本锁定策略
+
+**必须锁定 Traefik 版本**。v3.2.4/v3.3.0 曾引入 WebSocket 回归（#11405，`:protocol` header 导致 500 错误），已在后续版本修复。推荐 v3.4+，升级前必须在测试环境验证 WebSocket 连接。
+
+### Traefik 静态配置（WebSocket 优化）
+
+```yaml
+entryPoints:
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: "0"     # 禁用读超时，支持 WebSocket 长连接
+        writeTimeout: "0"    # 禁用写超时
+        idleTimeout: "180s"  # 空闲连接保活
+
+providers:
+  docker:
+    exposedByDefault: false  # 仅路由显式启用的容器
+    network: agentpod-net    # 指定默认网络，避免多网络时随机选错
+```
+
+### WebSocket 路由注意事项
+
+- **不挂 gzip middleware**: 压缩会破坏 WebSocket/SSE（Coolify #4002 教训）
+- **不挂 buffering middleware**: 缓冲与流式传输不兼容
+- **不挂 retry middleware**: WebSocket 是有状态连接，重试无意义
+- **应用层心跳必须实现**: Traefik 的 ping/pong 超时检测不可靠（#10627）
 
 ### Pod 容器 Traefik Labels
 
 ```typescript
 const labels = {
   'traefik.enable': 'true',
+  'traefik.docker.network': 'agentpod-net',
   [`traefik.http.routers.${pod.id}.rule`]:
     `Host(\`${pod.subdomain}.${DOMAIN}\`)`,
   [`traefik.http.routers.${pod.id}.entrypoints`]: 'websecure',
@@ -199,6 +230,20 @@ const labels = {
   'agentpod.adapter': pod.adapterId,
 }
 ```
+
+### Docker 网络拓扑
+
+**MVP: 共享自定义 Bridge 网络**
+
+所有生产级平台（Coolify、CapRover、Dokku）都使用自定义 Bridge 网络。MVP 使用单一 `agentpod-net` 网络：
+- 容器间 DNS 解析（无需 IP 管理）
+- 每个容器可用相同内部端口（无冲突）
+- Traefik 通过 Docker label 自动发现并路由
+- Host 网络模式因端口冲突不适合多租户
+
+**Phase 2 增强: 每租户独立网络**
+
+当安全隔离需求增强时，可演进为每租户独立 Bridge + Traefik 多网络连接，提供租户间网络隔离。
 
 ## Dashboard 页面结构
 
@@ -215,27 +260,31 @@ const labels = {
 
 ## 已验证的技术事实
 
-来自 VPS 实战验证:
-
 | 事实 | 来源 |
 |------|------|
 | 单容器 + 单 volume 方案可行 | VPS 实战验证 |
 | 重建容器后数据 100% 保留 | 多次重建验证 |
-| `--network host` 可解决 WebSocket pairing | VPS 实战验证 |
-| Bridge 网络下 WebSocket 会报 `pairing required` | VPS 踩坑记录 |
+| `--network host` 可解决 WebSocket pairing，但多租户不可用（端口冲突） | VPS 实战验证 |
+| Bridge 网络下 WebSocket 报 `pairing required` 是应用层问题（非网络层） | 深度调研确认 |
 | OpenClaw 只支持 JSON5 配置，不支持 YAML | 踩坑后确认 |
 | 非 root 用户通过 `NPM_CONFIG_PREFIX` 安装全局包 | Node.js 最佳实践验证 |
+| Traefik v3 修复了 `X-Forwarded-Proto` 非标准值（v2 发 `wss`，v3 发 `https`） | Traefik GitHub #6388 |
+| Traefik 增量更新路由，不影响现有连接；Caddy 全量重载会断开所有连接 | Coolify GitHub #7942 |
+| Gzip 压缩会破坏 WebSocket/SSE 连接 | Coolify GitHub #4002 |
+| Traefik ping/pong 超时检测不可靠，必须实现应用层心跳 | Traefik GitHub #10627 |
 
-### WebSocket Pairing 问题（关键风险）
+### WebSocket "Pairing Required" 问题（已定位）
 
-Bridge 网络下 WebSocket 报 `pairing required`。多租户场景不能用 `--network host`（端口冲突），需在 Traefik 层解决:
+**根因**："pairing required" 是 OpenClaw Gateway 应用层的 Origin/Host 校验失败，不是 Traefik 或 Bridge 网络的问题。
 
-- Traefik 默认透传 `Upgrade` / `Connection` header
-- 确保转发请求保留正确的 `Host` header 和 `Origin`
-- `--bind lan` 让容器监听 `0.0.0.0`，对 Traefik 可达
-- 备选: 在 `openclaw.json` 配置 `gateway.controlUi.allowedOrigins`
+**解决方案**（按优先级）：
 
-**这是 MVP Week 1 必须验证的第一件事。**
+1. **OpenClaw bind `0.0.0.0`**：容器必须监听所有接口，否则 Traefik 在 Bridge 网络内无法连通
+2. **配置 `allowedOrigins`**：在 openclaw.json 中设置 `gateway.controlUi.allowedOrigins` 允许子域名
+3. **Traefik `passHostHeader`**：默认开启，保留原始 `Host: alice.example.com` 头（Gateway 用此做校验）
+4. **Traefik v3.4+**：修复了 `X-Forwarded-Proto` 问题，确保 Origin 与 Proto 一致
+
+**风险评估**：🟡 中等置信度（配置问题，非架构问题）。仍需 PoC 验证，但通过概率高。
 
 ## Phase 2: 多节点架构
 

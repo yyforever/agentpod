@@ -1,6 +1,6 @@
 # 01 - 用户与市场研究
 
-> AgentPod PRD 系列文档 | 分册 1/3
+> AgentPod PRD 子文档 01
 
 ---
 
@@ -483,7 +483,7 @@ AgentPod 的最终价值通过终端客户的体验体现。开发者是 AgentPo
 |------|------|--------|----------|
 | H1 | SaaS 开发者为客户部署多个 OpenClaw 实例是真实且增长的需求 | 🟡 中 | 社区调研：OpenClaw 40,000+ 暴露实例中有多少是多租户场景 |
 | H2 | 手动部署流程无法标准化为产品交付，是开发者采用 AgentPod 的核心驱动力 | 🟡 中 | 用户访谈 + DEPLOY.md 踩坑记录 |
-| H3 | WebSocket + Traefik Bridge 网络可以正常工作 | 🔴 低 | **Gate 0 PoC 验证（阻塞项，见第五节）** |
+| H3 | WebSocket + Traefik v3.4+ 自定义 Bridge 网络可以正常工作 | 🟡 中 | **Gate 0 PoC 验证（阻塞项，见第五节）**；深度调研确认为应用层配置问题，非架构问题 |
 | H4 | 开发者愿意从手动脚本迁移到 AgentPod | 🟡 中 | 发布后观察 GitHub Stars 和 Issue |
 | H5 | 单机可支撑 50 个 Pod 容器 | 🟡 中 | 资源压测（每容器 ~200MB RAM，50 Pod ≈ 10GB） |
 | H6 | Reconciliation Loop 能在 30s 内检测并恢复故障容器 | 🟢 高 | 单元测试 + 集成测试 |

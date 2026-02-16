@@ -1,7 +1,7 @@
 # 03 - 竞品深度分析与差异化定位
 
-> AgentPod PRD 系列文档 | 分册 2/3
-> 依赖：01-user-and-market-research.md
+> AgentPod PRD 子文档 03
+> 依赖：[01-user-and-market-research.md](./01-user-and-market-research.md)
 
 ---
 
@@ -10,21 +10,27 @@
 AgentPod 面临三类替代方案的竞争：
 
 ```
-替代方案层次:
+替代方案:
 
-Layer 1: 手动方案（Docker Compose + Traefik + Shell 脚本）
-         ↓ "够用但累"
-Layer 2: 通用 PaaS（Coolify / CapRover / Dokku）
-         ↓ "通用但不懂 Agent"
-Layer 3: AI 平台（Dify / Coze / 白标平台）
-         ↓ "懂 AI 但不是同代 Agent"
+A. 手动方案（Docker Compose + Traefik + Shell 脚本）
+   "够用但累"
 
-AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
+B. 通用 PaaS（Coolify / CapRover / Dokku）
+   "通用但不懂 Agent"
+
+C. AI 平台（Dify / Coze / 白标平台）
+   "懂 AI 但不是自主 Agent 运行时"
 ```
+
+AgentPod 不在这三者之间，而是走了一条**垂直路线**：
+
+**通用 PaaS 做宽度（什么应用都能部署），AgentPod 做深度（只做 Agent，但做到极致）。**
+
+对标 Coolify 的部署体验和 Dashboard 品质，但在 Agent 领域提供 Coolify 无法触达的能力：理解 Agent 的配置结构、端口规则、通道生命周期和健康语义。
 
 ---
 
-## 二、Layer 1: 手动方案（Docker Compose + Traefik）
+## 二、手动方案（Docker Compose + Traefik）
 
 ### 能力描述
 
@@ -42,7 +48,7 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 
 - **完全控制**：端口范围、Volume 路径、网络模式全部可定制
 - **零抽象税**：无中间层，资源开销 ~100MB RAM
-- **端口范围支持**：唯一能支持 OpenClaw 10000-60000 端口范围的方案
+- **端口范围支持**：唯一能支持 Agent 复杂端口需求的方案
 - **无供应商锁定**：标准 Docker 生态，随时可迁移
 
 ### 劣势
@@ -68,9 +74,11 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 
 ---
 
-## 三、Layer 2: 通用 PaaS
+## 三、通用 PaaS（对标 Coolify）
 
-### Coolify
+### Coolify —— AgentPod 的基准线
+
+Coolify 是 AgentPod 最值得学习的对标对象。我们要达到 Coolify 的部署体验和 Dashboard 品质，然后在 Agent 领域超越它。
 
 | 维度 | 评估 |
 |------|------|
@@ -79,20 +87,23 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 | **技术栈** | Laravel + Docker + Traefik |
 | **优势** | 200+ 一键模板；自动 SSL；精美 Dashboard；支持 Docker Compose |
 | **资源开销** | 2 GB RAM + 1 CPU（平台自身） |
-| **TCO (20 租户/3 年)** | ~$9,144 |
 
-**OpenClaw 适配性分析**：
+**AgentPod 向 Coolify 学什么**：
 
-| 需求 | 支持 | 说明 |
-|------|------|------|
-| WebSocket | ⚠️ | 已知稳定性问题（GitHub #4002），长连接可能断开 |
-| 端口范围 10000-60000 | ❌ | 不支持批量端口映射，OpenClaw 需要 base+2, base+9~108 |
-| Volume 隔离 | ✅ | UUID 自动命名 |
-| 健康检查 | ✅ | 基于 Docker healthcheck |
-| 配置文件管理 | ⚠️ | 环境变量支持，但不理解 openclaw.json 结构 |
-| 资源限制 | ⚠️ | 无 GUI，需手动编辑 Docker Compose |
+- 一键部署体验（`docker compose up` 即完成安装）
+- Dashboard 设计品质（简洁、直觉、信息密度合理）
+- Docker + Traefik 的成熟集成模式
+- 开源社区运营
 
-**结论**：Coolify 能覆盖通用需求，但**不理解 OpenClaw 的端口派生规则、配置文件结构和 WebSocket 配对机制**，这些都需要额外适配。
+**AgentPod 在 Agent 领域的超越**：
+
+| 维度 | Coolify | AgentPod |
+|------|---------|----------|
+| **配置理解** | 只知道环境变量 | 理解 Agent 的配置文件结构，根据租户参数自动生成 |
+| **端口管理** | 单端口映射 | 理解 Agent 的端口派生规则（一个实例可能需要多个关联端口） |
+| **健康检查** | HTTP 200 | Agent 协议级健康检测（WebSocket heartbeat、Gateway 状态） |
+| **创建流程** | 通用容器部署 | Agent-Aware 流程（自动初始化身份、密钥、通道配置） |
+| **生命周期** | 容器生命周期 | Agent 生命周期（通道绑定状态、记忆持久化、配置热更新） |
 
 ---
 
@@ -105,9 +116,8 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 | **技术栈** | Node.js + Nginx + Docker Swarm |
 | **优势** | WebSocket 原生支持（内置开关）；零停机部署；集群扩展 |
 | **资源开销** | 1 GB RAM + 0.5 CPU |
-| **TCO (20 租户/3 年)** | ~$14,040 |
 
-**OpenClaw 适配性**：WebSocket 支持好于 Coolify，但同样不支持端口范围映射、不理解 Agent 配置。
+**Agent 适配性**：WebSocket 支持好于 Coolify，但同样不支持 Agent 特有的端口规则和配置管理。
 
 ---
 
@@ -119,7 +129,6 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 | **Stars** | 30,000+ |
 | **优势** | 资源开销最低（100MB）；原生资源限制命令 |
 | **劣势** | 无 GUI；无集群；WebSocket 配置复杂；单服务器限制 |
-| **TCO (20 租户/3 年)** | ~$25,200（运维成本高） |
 
 **结论**：Dokku 太轻量，缺少 AgentPod 核心场景所需的监控、自动恢复和多租户管理能力。
 
@@ -134,24 +143,38 @@ AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
   App = Container + Port + Volume + Env
 
 AgentPod 眼中的 Agent:
-  Agent = Container + Port Range(100+)
-        + Config File (openclaw.json, SOUL.md, MEMORY.md)
-        + Auth Profiles (per-tenant API keys)
-        + Channel Bindings (WhatsApp session, Telegram token)
-        + Identity (agent ID, workspace)
-        + Health (WebSocket heartbeat, not just HTTP 200)
+  Agent = Container
+        + Port Rules (每种 Agent 有自己的端口派生逻辑)
+        + Config Files (结构化配置，非简单 key-value)
+        + Auth & Secrets (per-tenant API keys, tokens)
+        + Channel Bindings (消息通道的连接状态)
+        + Identity (agent ID, workspace, persona)
+        + Health (协议级心跳，非简单 HTTP ping)
 ```
 
-通用 PaaS 无法做到的：
-1. **端口派生**：自动计算 base, base+2, base+9~108
-2. **配置生成**：根据租户参数生成 openclaw.json
-3. **通道管理**：理解 WhatsApp session、Telegram bot token 的生命周期
-4. **Agent 健康检查**：通过 WebSocket 协议检查 Gateway 心跳，而非简单 HTTP ping
-5. **声明式调和**：配置变更 → 自动重建容器 → 验证 Agent 正常运行
+**这不是某一种 Agent 的特殊问题，而是所有 AI Agent 的共性**。每种 Agent（OpenClaw、Open WebUI、LobeChat、自定义 Agent）都有自己的配置结构、端口需求、健康检查方式。通用 PaaS 只能把它们当作"又一个容器"来管理。
+
+**AgentPod 的 Adapter 架构**正是为此设计的：
+
+```
+AgentAdapter 接口:
+  ┌─────────────────────────────────┐
+  │ meta         → Agent 是谁       │
+  │ containerSpec → 怎么跑          │
+  │ configSchema  → 怎么配置        │  ← Zod schema，Dashboard 自动渲染表单
+  │ lifecycle     → 生命周期钩子     │  ← 创建前/后、配置变更、删除前
+  │ resolveSpec   → 模板 → 实际参数  │
+  └─────────────────────────────────┘
+
+  Day 1: OpenClaw Adapter（验证架构）
+  Day N: Open WebUI / LobeChat / 自定义 Adapter
+```
+
+每个 Adapter 封装一种 Agent 的领域知识。AgentPod 框架是通用的，Adapter 是专用的。这是 Coolify 的模板系统做不到的事——Coolify 的模板只定义"怎么启动容器"，AgentPod 的 Adapter 定义"怎么理解和管理这个 Agent"。
 
 ---
 
-## 四、Layer 3: AI 平台
+## 四、AI 平台
 
 ### Dify / Coze / n8n
 
@@ -165,12 +188,10 @@ AgentPod 眼中的 Agent:
 
 ```
 Dify/Coze: "用我们的平台构建你的 Agent"
-AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
+AgentPod:  "你已经有了好的 Agent，我帮你把它交付给 N 个客户"
 ```
 
-这两者不是直接竞争关系，而是上下游：
-- Dify 的用户可能不需要 AgentPod（Dify 自己管理多租户）
-- OpenClaw 的用户需要 AgentPod（OpenClaw 不管理多租户）
+这是完全不同的设计理念。AI 平台关注的是 Agent 的**构建**（提示词、工具链、知识库）；AgentPod 关注的是 Agent 的**交付**（多租户隔离、批量部署、运行时管理）。两者是上下游关系，不是竞争。
 
 ---
 
@@ -211,15 +232,21 @@ AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
 
 ### Q2: 为什么不用 Coolify？
 
-**答**：Coolify 是通用 PaaS，不理解 Agent 的特殊需求：
+**答**：Coolify 是优秀的通用 PaaS，AgentPod 在通用部署能力上以 Coolify 为基准线。差异在于 Agent 领域的深度：
 
-1. **不支持端口范围映射** → OpenClaw 每实例需要 100+ 端口
-2. **WebSocket 已知问题** → OpenClaw Gateway 依赖长连接稳定性
-3. **不理解配置结构** → 无法生成 openclaw.json、管理 auth profiles
-4. **无 Agent 健康语义** → 不知道什么是 "Gateway heartbeat"
+**Coolify 做得好的（我们要追平）**：
+- 一键安装体验
+- 精美 Dashboard
+- 自动 SSL
+- Docker Compose 支持
 
-**Coolify 适合**：部署 Web 应用、数据库、静态站点
-**AgentPod 适合**：部署需要深度配置管理的 AI Agent 实例
+**Coolify 做不到的（我们的差异化）**：
+1. **Agent 配置管理** → Coolify 只有环境变量；AgentPod 理解 Agent 的结构化配置文件，能根据租户参数自动生成
+2. **端口派生** → Coolify 单端口映射；AgentPod 理解 Agent 特有的端口组规则
+3. **Agent 健康语义** → Coolify 检查 HTTP 200；AgentPod 通过 Agent 自身协议（如 WebSocket heartbeat）检测健康
+4. **Adapter 生态** → Coolify 的模板 = 启动参数；AgentPod 的 Adapter = 完整的 Agent 领域知识（配置结构、生命周期钩子、健康检查方式）
+
+**一句话**：Coolify 是 Agent 的"房东"（提供一个容器跑着就行）；AgentPod 是 Agent 的"经纪人"（理解 Agent 是谁、需要什么、状态如何）。
 
 ---
 
@@ -247,12 +274,11 @@ AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
 |------|---------|----------|
 | 部署模式 | SaaS（他们的服务器） | 自托管（你的服务器） |
 | 数据控制 | 无（数据在供应商处） | 完全控制 |
-| Agent 类型 | 供应商预设 | OpenClaw（自定义能力强） |
+| Agent 类型 | 供应商预设 | 任意自托管 Agent（通过 Adapter 扩展） |
 | 技术要求 | 零代码 | Docker 基础 |
-| 月成本 | $99-999/月 + 按量计费 | VPS 成本（$20-100/月） |
-| 定制深度 | UI 白标 + 提示词 | 完全自定义（SOUL.md、工具、通道） |
+| 定制深度 | UI 白标 + 提示词 | 完全自定义（配置、工具、通道、记忆） |
 
-**选 AgentPod 而非白标平台的理由**：当你需要 OpenClaw 的完整能力（自定义工具、浏览器控制、记忆系统、多通道），且要求数据留在自己的服务器上。
+**选 AgentPod 而非白标平台的理由**：当你需要 Agent 的完整能力（自定义工具、记忆系统、多通道），且要求数据留在自己的服务器上。
 
 ---
 
@@ -260,30 +286,20 @@ AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
 
 ### AgentPod 是什么
 
-> **Agent-Aware 的 AI Agent 产品化交付平台**
+> **垂直于 AI Agent 的编排与交付平台**
 >
-> 让 SaaS 开发者像开通 SaaS 账号一样为客户部署即开即用的数字员工：
-> 两条命令创建 Tenant + Pod，30 秒自动恢复故障，Dashboard 统一监控。
-> 终端客户收到的是即开即用的 Agent，不需要知道 OpenClaw、Docker 的存在。
-
-### AgentPod 不是什么
-
-| 不是 | 原因 |
-|------|------|
-| 通用 PaaS | 只做 Agent 产品化交付，不替代 Coolify |
-| AI 工作流平台 | 不替代 Dify/n8n，不构建 Agent |
-| 白标 SaaS | 不提供托管服务，只提供管理工具 |
-| Kubernetes | 不做通用容器编排 |
+> 对标 Coolify 的部署体验，超越 Coolify 的 Agent 理解力。
+> 让开发者像开通 SaaS 账号一样为客户部署即开即用的数字员工。
 
 ### 核心差异化能力
 
 | 能力 | 手动方案 | 通用 PaaS | AgentPod |
 |------|---------|-----------|----------|
-| Agent 配置生成 | ❌ | ❌ | ✅ 根据租户参数生成 openclaw.json |
-| 端口自动派生 | ❌ | ❌ | ✅ base → base+2, base+9~108 |
-| Agent 健康语义 | ❌ | ❌ | ✅ WebSocket heartbeat 检测 |
+| Agent 配置生成 | ❌ | ❌ | ✅ Adapter 根据租户参数生成 Agent 配置 |
+| 端口自动派生 | ❌ | ❌ | ✅ Adapter 定义端口规则，框架自动分配 |
+| Agent 健康语义 | ❌ | ❌ | ✅ Adapter 定义协议级健康检查 |
 | 声明式调和 | ❌ | ❌ | ✅ 期望状态 vs 实际状态自动同步 |
-| 通道生命周期 | ❌ | ❌ | ✅ 理解 WhatsApp session 等状态 |
+| 通道生命周期 | ❌ | ❌ | ✅ Adapter 管理消息通道连接状态 |
 | 一键创建租户 | ❌ | ⚠️（通用） | ✅（Agent-Aware） |
 | 统一 Dashboard | ❌ | ✅（通用） | ✅（Agent 语义） |
 
@@ -291,14 +307,39 @@ AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
 
 **Coolify 知道你跑了一个容器；AgentPod 知道你跑了一个会说话的数字员工。**
 
+### Adapter 架构的意义
+
+AgentPod 不是 "OpenClaw 托管工具"。Adapter 接口意味着：
+
+- **对框架来说**：所有 Agent 都是统一的 Tenant → Pod 模型，统一调和、统一监控、统一 Dashboard
+- **对 Adapter 来说**：每种 Agent 的领域知识被封装在各自的 Adapter 中，互不干扰
+- **对社区来说**：贡献一个新的 Adapter = 让 AgentPod 支持一种新的 Agent 类型，门槛低（实现一个 TypeScript 接口）
+
+MVP 从 OpenClaw Adapter 开始，是因为 OpenClaw 的多租户部署痛点最强烈、最紧迫。但架构从第一天就为多 Agent 类型设计。
+
 ---
 
-## 七、竞品能力矩阵（总览）
+## 七、AgentPod 坚决不做什么
+
+| 坚决不做 | 原因 |
+|----------|------|
+| **不做通用 PaaS** | Coolify 已经做得足够好。部署 MySQL？用 Coolify。部署 Agent？用 AgentPod。 |
+| **不构建 Agent** | 那是 OpenClaw / Dify / Coze 的事。AgentPod 只管"部署和运行"，不管"创建和训练"。 |
+| **不做 SaaS 托管** | AgentPod 是工具，不是服务。你装在自己服务器上，数据归你。 |
+| **不做计费系统** | AgentPod 管 Agent 的生命周期，不管你怎么收客户的钱。 |
+| **不做 Kubernetes** | 不模仿 K8s 的概念和复杂度。单机 Docker 是我们的运行时，够用就好。 |
+| **不做终端客户界面** | AgentPod 的用户是开发者/运营方，终端客户直接使用 Agent 本身。 |
+
+这些"不做"定义了 AgentPod 的边界。每一条都是在说：**这件事已经有人做好了，我们不重复。**
+
+---
+
+## 八、竞品能力矩阵（总览）
 
 | 能力 | Docker Compose | Coolify | CapRover | Dokku | AgentPod |
 |------|---------------|---------|----------|-------|----------|
 | 一键部署租户 | ❌ | ✅ | ✅ | ⚠️ | ✅ |
-| WebSocket 稳定性 | ✅ | ⚠️ | ✅ | ⚠️ | ✅（目标） |
+| WebSocket 稳定性 | ✅ | ⚠️ | ✅ | ⚠️ | ✅ |
 | 端口范围支持 | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Agent 配置管理 | ❌ | ❌ | ❌ | ❌ | ✅ |
 | 声明式调和 | ❌ | ❌ | ❌ | ❌ | ✅ |

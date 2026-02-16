@@ -1,6 +1,6 @@
 # 04 - 验证闭环与工程设计
 
-> AgentPod PRD 系列文档 | 分册 4/4
+> AgentPod PRD 系列文档 | 分册 3/3
 > 依赖：01 ~ 03 文档
 > 方法论来源：Peter Steinberger 闭环工程实践
 

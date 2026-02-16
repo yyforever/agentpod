@@ -1,6 +1,6 @@
-# 01 - 用户画像与场景分析
+# 01 - 用户与市场研究
 
-> AgentPod PRD 系列文档 | 分册 1/4
+> AgentPod PRD 系列文档 | 分册 1/3
 
 ---
 
@@ -8,11 +8,11 @@
 
 ### 一句话定位
 
-**AgentPod 是 AI Agent 的产品化交付平台，让开发者像开通 SaaS 账号一样为客户部署即开即用的数字员工。**
+**AgentPod 是 AI Agent 的产品化交付平台，让做好了 Agent 的开发者以最低成本将其交付给终端客户——客户拿到的是即开即用的数字员工。**
 
 ### 市场判断
 
-AI Agent 正在改变 SaaS 的交付方式。未来 SaaS 不再是"提供一个网站让客户登录使用"，而是"为客户部署一个能直接工作的数字员工"。当每个 SaaS 厂商都需要为客户交付独立的 Agent 实例时，它们需要一个产品化交付平台。AgentPod 赌的就是这个趋势。
+AI Agent 正在改变 SaaS 的交付方式。未来 SaaS 不再是"提供一个网站让客户登录使用"，而是"为客户部署一个能直接工作的数字员工"。越来越多的开发者在 OpenClaw 上做出了好用的 Agent（Skills、MCP、知识库），但把它交付给客户——给每个客户独立部署一套——门槛极高。AgentPod 要做的就是把这个门槛降到最低。
 
 ### 品类定义
 
@@ -29,6 +29,8 @@ AI Agent 正在改变 SaaS 的交付方式。未来 SaaS 不再是"提供一个�
 | Docker Compose → Kubernetes | 从手动编排到声明式管理 |
 
 ### 交付模型
+
+开发者的起点是自己的 OpenClaw 上已做好的 Agent（Skills、MCP、Prompt、知识库）。AgentPod 将这些能力产品化地复制给每个终端客户：
 
 ```
 开发者（AgentPod 运营方）
@@ -176,7 +178,99 @@ agentpod pod upgrade --tenant megacorp   # 批量升级该客户的所有 Pod
 
 ---
 
-## 五、核心用户场景
+## 五、痛点验证与优先级
+
+### 验证来源
+
+所有痛点均有实证支撑：OpenClaw `DEPLOY.md` 踩坑记录（★★★★★）、`docs/gateway/multiple-gateways.md` 官方文档（★★★★★）、源码/Dockerfile（★★★★★）、安全研究报告 40,000+ 暴露实例（★★★★☆）、社区讨论（★★★☆☆）。
+
+### 痛点清单
+
+> **范围**：聚焦"手动管理多个 OpenClaw 实例"的操作痛点。迁移体验（S4）属上手场景，API 成本追踪（S8）缺少实证，均不在此清单内。
+
+| 编号 | 痛点 | 描述 | 严重度 | 影响 Persona |
+|------|------|------|--------|-------------|
+| PP-01 | 端口分配与冲突 | 每实例需 100+ 端口范围（base+2 浏览器控制, base+9~108 CDP），手动计算易出错，冲突 = 容器无法启动 | **阻塞** | 全部（尤其王鹏） |
+| PP-02 | 状态目录隔离 | 多实例共享 `~/.openclaw` 导致配置竞争、会话冲突、WhatsApp session 损坏 | **数据损坏** | 全部 |
+| PP-03 | Bridge 网络 WebSocket 配对 | Docker Bridge 网络下 Gateway 将 172.18.0.x 视为不可信，触发 "pairing required" 错误 | **阻塞** | 全部（见 Gate 0） |
+| PP-04 | 手动 Docker 编排 | 每客户 12+ 步手动操作（端口/Volume/Traefik/证书/Token），无法标准化为产品交付 | **高** | 全部 |
+| PP-05 | 无统一监控视图 | N 个容器状态分散在 docker logs 中，无聚合视图，"直到客户反馈才知道挂了" | **高** | 全部 |
+| PP-06 | 无自动故障恢复 | Docker restart 只处理进程退出；Gateway 挂起、OOM、启动循环无法自动恢复 | **高** | 全部 |
+| PP-07 | HTTPS 证书管理 | 每个租户子域名需独立 TLS 证书，手动 certbot 或配置 Traefik ACME | **中** | 赵明、李娜 |
+| PP-08 | Gateway Token 管理 | Token 分散在各容器中，无集中查看/轮换能力 | **低** | 全部 |
+| PP-09 | 资源限制缺失 | 容器无 CPU/内存限制，一个客户失控可耗尽整台服务器（noisy neighbor） | **高** | 赵明、王鹏 |
+| PP-10 | 版本升级困难 | N 个容器逐个停止/删除/重建，无滚动升级、无回滚 | **中** | 李娜（60 容器） |
+| PP-11 | 配置管理混乱 | 每客户 openclaw.json 独立维护，LLM Provider/通道凭证分散 | **中** | 李娜、赵明 |
+
+> **关键备注**：
+> - PP-04 的核心不只是效率低，更在于**阻碍产品化**——每次交付都是手工作坊式操作，非技术终端客户无法自助获得 Agent
+> - PP-08 Token **自动生成**已包含在 PP-04（自动化创建流程）中；PP-08 特指集中管理与可视化
+> - PP-06 影响全部 Persona：李娜（客户 SLA 99.5%）、赵明（客户满意度）、王鹏（没时间盯）
+
+### Gate 0：技术可行性验证
+
+PP-03 不参与 ICE 排序，因为它不是功能痛点，而是整个多租户方案的**技术前提**。如果 Bridge 网络 + WebSocket 不可工作，后续所有功能无从谈起。
+
+| 维度 | 说明 |
+|------|------|
+| **验证时机** | 编码前 Week 0 Day 1-2 |
+| **成功标准** | Traefik 反代下 WebSocket 握手成功，无 "pairing required" 错误 |
+| **验证方法** | 最小 PoC：1 Traefik + 1 OpenClaw + Bridge 网络 |
+| **失败后果** | 回退到 host 网络 + 端口映射方案（降级但可行） |
+
+**缓解方案（按优先级）：**
+
+| 方案 | 可行性 | 代价 |
+|------|--------|------|
+| A: Traefik 配置 Host/Origin/X-Forwarded-For header 转发 | 🟢 高 | 低（配置层面） |
+| B: OpenClaw allowedOrigins 配置白名单 | 🟢 高 | 低（配置层面） |
+| C: OpenClaw allowInsecureAuth: true | 🟡 中 | 中（安全妥协） |
+| D: Host 网络 + iptables 端口映射 | 🟡 中 | 高（复杂度提升） |
+
+PP-03 是可解的配置问题，而非架构层面的死锁。通过后进入正式开发，失败则启动降级方案评估。
+
+### ICE 优先级评分
+
+> PP-03 已提取为 Gate 0，不参与以下排序。
+
+评分维度：**Impact**（用户价值提升, 1-10）× **Confidence**（痛点真实性 + 方案可行性, 1-10）× **Ease**（实现容易度, 10=最容易）
+
+| 排名 | 痛点 | Impact | Confidence | Ease | ICE 分 | MVP 纳入 |
+|------|------|--------|------------|------|--------|----------|
+| 1 | PP-01 端口分配与冲突 | 8 | 10 | 8 | 640 | ✅ Must |
+| 2 | PP-02 状态目录隔离 | 8 | 10 | 8 | 640 | ✅ Must |
+| 3 | PP-04 手动 Docker 编排 | 10 | 9 | 7 | 630 | ✅ Must |
+| 4 | PP-06 无自动故障恢复 | 9 | 8 | 7 | 504 | ✅ Must |
+| 5 | PP-09 资源限制缺失 | 7 | 8 | 9 | 504 | ✅ Should |
+| 6 | PP-08 Token 集中管理 | 5 | 10 | 10 | 500 | ✅ Should |
+| 7 | PP-05 无统一监控视图 | 8 | 8 | 6 | 384 | ✅ Must |
+| 8 | PP-07 HTTPS 证书管理 | 6 | 8 | 7 | 336 | ✅ Should |
+| 9 | PP-11 配置管理混乱 | 7 | 7 | 5 | 245 | ✅ Should |
+| 10 | PP-10 版本升级困难 | 6 | 7 | 5 | 210 | ✅ Should |
+
+> **ICE 分数 ≠ MVP 纳入决策**。MVP 纳入还考虑战略依赖关系：
+> - PP-04/01/02/06/05 构成**核心价值闭环**（创建 → 隔离 → 恢复 → 监控），缺一不可，全部 Must
+> - PP-05（ICE 384）排名第 7 但仍为 Must，因为没有统一监控就无法兑现"产品化交付"承诺
+> - PP-08 Token 自动**生成**已包含在 PP-04 中；PP-08 特指集中管理与可视化，归为 Should
+
+### 最小可用门槛
+
+**前提**：Gate 0（PP-03）已通过 PoC 验证。
+
+**Must Have（不解决 = 无法产品化交付）—— 核心价值闭环：创建 → 隔离 → 恢复 → 监控**
+
+| PP | 解决方案 | 意义 |
+|----|---------|------|
+| PP-04 | `agentpod tenant create` + `pod create` 两条命令 | 从手工作坊到标准化交付（Token 自动生成含在内） |
+| PP-01 + PP-02 | 控制面自动分配端口段和目录结构 | 用户不需要关心隔离细节 |
+| PP-06 | Reconciliation Loop 30s 自动调和 | 容器崩溃自动恢复 |
+| PP-05 | Dashboard 统一视图 + CLI `pod list` | 兑现"规模化运营"的基础 |
+
+**Should Have（提升满意度）：** PP-09 资源限制、PP-10 批量升级、PP-07 HTTPS 自动化、PP-08 Token 集中管理、PP-11 配置管理
+
+---
+
+## 六、核心用户场景
 
 ### 场景矩阵（按优先级）
 
@@ -185,25 +279,25 @@ agentpod pod upgrade --tenant megacorp   # 批量升级该客户的所有 Pod
 | **P0** | S1: 为新客户创建 Tenant 和 Pod | 每周 1-3 次 | ★★★★★ | 全部 | PP-04, PP-01, PP-02 |
 | **P0** | S2: 查看所有客户和 Pod 运行状态 | 每天多次 | ★★★★☆ | 全部 | PP-05 |
 | **P0** | S3: 容器崩溃自动恢复 | 事件触发 | ★★★★★ | 全部 | PP-06 |
-| **P1** | S4: 迁移已有 OpenClaw 实例到 AgentPod | 一次性 | ★★★★☆ | 全部（首次使用） | — (上手场景，非操作痛点) |
+| **P1** | S4: 迁移已有 OpenClaw 实例到 AgentPod | 一次性 | ★★★★☆ | 全部（首次使用） | — (上手场景) |
 | **P1** | S5: 批量升级 Pod 版本 | 每月 1-2 次 | ★★★★☆ | 李娜 | PP-10 |
 | **P1** | S6: 按客户配置不同的 LLM 和通道 | 创建时 | ★★★☆☆ | 李娜、赵明 | PP-11 |
 | **P1** | S7: 为 Pod 设置资源上限 | 创建时 | ★★★☆☆ | 赵明、王鹏 | PP-09 |
-| **P2** | S8: 查看客户级的 API 用量和成本 | 每周/每月 | ★★☆☆☆ | 赵明 | — (未验证痛点) |
+| **P2** | S8: 查看客户级的 API 用量和成本 | 每周/每月 | ★★☆☆☆ | 赵明 | — (未验证) |
 | **P2** | S9: 备份和恢复客户数据 | 每月 | ★★☆☆☆ | 李娜 | — |
 
 > **说明**：
-> - "重要度"衡量场景对用户的价值，不等于"痛点强度"。S4（迁移）重要度高是因为它决定了用户的第一印象，但它本身不是当前操作中的痛点（参见 02 文档痛点清单的范围定义）。
-> - S3（故障恢复）影响全部 Persona：赵明和王鹏缺少运维带宽，李娜有客户 SLA 要求。
-> - S8（API 用量）在 02 文档中无对应已验证痛点，列为 P2 待后续用户访谈验证。
+> - S4（迁移）重要度高是因为它决定了用户第一印象，但它本身不是操作痛点
+> - S3（故障恢复）影响全部 Persona：赵明和王鹏缺少运维带宽，李娜有客户 SLA 要求
+> - S8（API 用量）无对应已验证痛点，列为 P2 待用户访谈验证
 
 ---
 
 ### S1: 为新客户创建 Tenant 和 Pod（P0）
 
-**核心价值：让开发者可以将 Agent 作为产品交付给非技术客户。**
+**核心价值：让做好 Agent 的开发者能把它变成可交付给客户的产品。**
 
-没有 AgentPod 时，每接一个客户意味着开发者要亲自执行 12 步基础设施操作。这不仅低效，更关键的是——开发者无法将这个流程标准化为"产品交付"，因为每次都是手工作坊式的一次性操作。
+开发者在自己的 OpenClaw 上构建了完整的 Agent 能力（Skills、MCP、Prompt 配置），在自己的实例上跑得很好。现在想给客户也来一套。没有 AgentPod 时，这意味着亲自执行 12 步基础设施操作。这不仅门槛高，更关键的是——无法将这个流程标准化为"产品交付"，每次都是手工作坊式的一次性操作。
 
 **当前流程（无 AgentPod）：**
 
@@ -244,43 +338,15 @@ agentpod pod upgrade --tenant megacorp   # 批量升级该客户的所有 Pod
 
 ### S2: 查看所有客户和 Pod 运行状态（P0）
 
-**当前流程：**
+**当前**：`docker ps` + `docker logs` + `docker stats` 逐个查看，没有统一视图，没有告警。
 
-```bash
-# 逐个检查
-docker ps --filter "name=openclaw"
-docker logs openclaw-acme --tail 20
-docker logs openclaw-beta --tail 20
-docker stats --no-stream
-# 没有统一视图，没有告警
-```
-
-**期望：**
-
-Dashboard 按 Tenant 分组显示所有 Pod 状态：
-- 运行状态（运行中 / 已停止 / 错误）
-- 上次心跳时间
-- CPU / 内存用量
-- 已连接的消息通道
-- 最近错误日志摘要
-
-CLI 同时支持两个维度：
-```bash
-agentpod pod list                     # 所有 Pod 平铺
-agentpod tenant status megacorp       # 按 Tenant 聚合
-```
-
-异常时自动告警（Webhook / 邮件）。
+**期望**：Dashboard 按 Tenant 分组显示所有 Pod 状态（运行状态、心跳时间、资源用量、通道连接、错误摘要）。CLI 同时支持 `agentpod pod list`（平铺）和 `agentpod tenant status <name>`（按客户聚合）。异常时自动告警。
 
 ---
 
 ### S3: 容器崩溃自动恢复（P0）
 
-**当前状态：**
-- Docker `--restart=unless-stopped` 只能处理进程退出
-- 如果 OpenClaw Gateway 进程挂起（不退出但不响应），Docker 不会重启
-- 如果配置变更导致启动失败，Docker 会无限重启循环
-- **没有人知道容器挂了，直到客户反馈 "Agent 没回复了"**
+**当前**：Docker `--restart=unless-stopped` 只能处理进程退出。Gateway 挂起（不退出但不响应）、配置错误导致的启动循环、资源耗尽——Docker 都无法自动处理。**没有人知道容器挂了，直到客户反馈**。
 
 **期望（Reconciliation Loop）：**
 - 每 30 秒对比期望状态（DB）和实际状态（Docker）
@@ -293,73 +359,30 @@ agentpod tenant status megacorp       # 按 Tenant 聚合
 
 ### S4: 迁移已有 OpenClaw 实例（P1）
 
-**场景描述：**
-
 用户已有 3-5 个手动部署的 OpenClaw 容器在运行，想迁移到 AgentPod 管理而不中断服务。
 
-**当前痛点：**
-- 手动重新创建 = 停服 + 重新配置，客户无法接受
-- 已有的 Volume 数据（MEMORY.md、会话记录、WhatsApp Session）不能丢
-- 每个实例的配置散落在 docker run 命令行参数、环境变量、openclaw.json 中
-
 **期望流程：**
-
 ```bash
-agentpod migrate discover
-# → 自动扫描本机运行的 OpenClaw 容器（docker ps + docker inspect）
-# → 读取每个容器的：
-#    - Volume 挂载路径（找到 ~/.openclaw 在宿主机的位置）
-#    - 端口映射（Gateway port, Bridge port）
-#    - 环境变量（OPENCLAW_GATEWAY_TOKEN, 路径覆盖）
-#    - openclaw.json 配置（agent 列表、通道绑定、LLM 配置）
-# → 输出发现结果：
-
-  发现 3 个 OpenClaw 实例:
-  ┌───────────────────┬──────────┬───────┬──────────────────────────────┐
-  │ Container         │ Port     │ Agents│ Data Path                    │
-  ├───────────────────┼──────────┼───────┼──────────────────────────────┤
-  │ openclaw-acme     │ 18789    │ main  │ /data/acme/.openclaw         │
-  │ openclaw-beta     │ 19789    │ main  │ /data/beta/.openclaw         │
-  │ openclaw-gamma    │ 20789    │ 2     │ /data/gamma/.openclaw        │
-  └───────────────────┴──────────┴───────┴──────────────────────────────┘
-
-agentpod migrate adopt --all
-# → 为每个容器创建 Tenant + Pod 记录（写入 DB）
-# → 保留原有 Volume 路径（不移动数据）
-# → 保留原有端口映射
-# → 注册到 Traefik 路由
-# → 将容器纳入 Reconciliation Loop 监控
-# → 标记 Pod 状态为 "adopted"（区别于 "created"）
-# → 全程不停止原容器，零中断迁移
+agentpod migrate discover    # 扫描本机 OpenClaw 容器，读取 Volume/端口/环境变量/openclaw.json
+agentpod migrate adopt --all # 零中断纳入管理：创建 DB 记录、注册 Traefik、纳入 Reconciliation
 ```
 
-**关键实现细节：**
-- `docker inspect` 提取 Volume Mounts、Port Bindings、Env Vars
-- 从宿主机 Volume 路径读取 `openclaw.json`，解析 agents/channels/bindings
-- 敏感信息（auth-profiles.json、WhatsApp creds.json）只检测存在性，不读取内容
-- 迁移后原容器继续运行，AgentPod 接管监控和生命周期管理
+**核心要求：**
+- **零中断**：迁移期间原容器不停止，AgentPod 接管监控和生命周期
+- **数据保留**：保留原有 Volume 路径和端口映射，不移动数据
+- **配置识别**：通过 `docker inspect` + 读取 `openclaw.json` 自动提取完整配置
+- **安全**：敏感信息（auth-profiles.json、WhatsApp creds.json）只检测存在性，不读取内容
 
 ---
 
 ### S5: 批量升级 Pod 版本（P1）
 
-**当前流程：**
-```bash
-# 对每个客户重复以下步骤：
-docker pull openclaw:latest
-docker stop openclaw-acme
-docker rm openclaw-acme
-docker run ... # 重新粘贴完整的 docker run 命令
-# 验证启动成功
-# 重复 N 次
-```
+**当前**：对每个客户重复 `docker pull → stop → rm → run`，手动粘贴完整 docker run 命令。
 
-**期望：**
+**期望**：
 ```bash
 agentpod pod upgrade --all --image openclaw:2026.2.15
-# 或按 Tenant 升级
 agentpod pod upgrade --tenant megacorp --image openclaw:2026.2.15
-# 或通过 Dashboard 一键滚动升级
 # 自动：逐个停止 → 拉新镜像 → 重建容器 → 健康检查通过后继续下一个
 ```
 
@@ -367,27 +390,13 @@ agentpod pod upgrade --tenant megacorp --image openclaw:2026.2.15
 
 ### S6: 按客户配置不同的 LLM 和通道（P1）
 
-**场景描述：**
-- 客户 A（外企）要求用 Claude，通过 Slack 对接
-- 客户 B（国企）要求用通义千问，通过飞书对接
-- 客户 C（电商）要求用 GPT-4，通过 WhatsApp 对接
+客户 A 用 Claude + Slack，客户 B 用通义千问 + 飞书，客户 C 用 GPT-4 + WhatsApp。当前每个客户的 `openclaw.json` 完全不同，LLM API Key 和通道凭证散落各处。
 
-**当前痛点：**
-- 每个客户的 `openclaw.json` 完全不同
-- LLM API Key 分散在各个容器的环境变量中
-- 通道凭证（Slack Token、飞书 App ID、WhatsApp Session）管理混乱
-
-**期望：**
-- Dashboard 中每个 Pod 有独立的配置页面
-- LLM Provider + API Key 作为 Pod 配置项
-- 通道绑定可视化管理
-- 敏感信息加密存储
+**期望**：Dashboard 中每个 Pod 有独立配置页面（LLM Provider + API Key + 通道绑定），敏感信息加密存储。
 
 ---
 
-## 六、用户旅程
-
-### 从安装到稳定运营的完整旅程
+## 七、用户旅程
 
 ```
 阶段 1: 发现与评估（Day 0）
@@ -430,7 +439,7 @@ agentpod pod upgrade --tenant megacorp --image openclaw:2026.2.15
 
 ---
 
-## 七、终端客户体验
+## 八、终端客户体验
 
 AgentPod 的最终价值通过终端客户的体验体现。开发者是 AgentPod 的用户，但终端客户是最终价值的受益者。
 
@@ -468,21 +477,14 @@ AgentPod 的最终价值通过终端客户的体验体现。开发者是 AgentPo
 
 ---
 
-## 八、关键假设
+## 九、关键假设与风险
 
 | 编号 | 假设 | 置信度 | 验证方法 |
 |------|------|--------|----------|
 | H1 | SaaS 开发者为客户部署多个 OpenClaw 实例是真实且增长的需求 | 🟡 中 | 社区调研：OpenClaw 40,000+ 暴露实例中有多少是多租户场景 |
 | H2 | 手动部署流程无法标准化为产品交付，是开发者采用 AgentPod 的核心驱动力 | 🟡 中 | 用户访谈 + DEPLOY.md 踩坑记录 |
-| H3 | WebSocket + Traefik Bridge 网络可以正常工作 | 🔴 低 | **必须编码前 PoC 验证（阻塞项）** |
+| H3 | WebSocket + Traefik Bridge 网络可以正常工作 | 🔴 低 | **Gate 0 PoC 验证（阻塞项，见第五节）** |
 | H4 | 开发者愿意从手动脚本迁移到 AgentPod | 🟡 中 | 发布后观察 GitHub Stars 和 Issue |
 | H5 | 单机可支撑 50 个 Pod 容器 | 🟡 中 | 资源压测（每容器 ~200MB RAM，50 Pod ≈ 10GB） |
 | H6 | Reconciliation Loop 能在 30s 内检测并恢复故障容器 | 🟢 高 | 单元测试 + 集成测试 |
 | H7 | 自动迁移工具能正确识别 90%+ 的已有 OpenClaw 配置 | 🟡 中 | 基于 OpenClaw config TypeScript 类型定义验证 |
-
-### 前置验证项（必须开工前完成）
-
-- **H3**: Bridge 网络 + Traefik + OpenClaw WebSocket 配对验证
-  - 验证方法：搭建最小 PoC（1 个 Traefik + 1 个 OpenClaw 容器 + Bridge 网络）
-  - 成功标准：WebSocket 握手成功，无 "pairing required" 错误
-  - 如果失败：回退到 host 网络 + 端口映射方案（降级但可行）

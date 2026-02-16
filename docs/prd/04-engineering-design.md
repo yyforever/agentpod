@@ -20,7 +20,7 @@
 ```
 ┌─────────────────────────────────────────────┐
 │  Layer 1: Harness（CLI 诊断入口）              │
-│  agentpod create / status / health / doctor   │
+│  agentpod tenant / pod / health / doctor       │
 │  → Agent 直接验证输出，零 UI 依赖              │
 ├─────────────────────────────────────────────┤
 │  Layer 2: Shell（Dashboard / REST API）        │
@@ -58,17 +58,27 @@
 ### CLI 命令设计
 
 ```bash
-# 租户生命周期
-agentpod create <tenant-id> [--type openclaw] [--config config.json]
-agentpod delete <tenant-id> [--force]
-agentpod list [--format json|table]
-agentpod status <tenant-id> [--format json]
+# Tenant 管理
+agentpod tenant create <tenant-id>
+agentpod tenant delete <tenant-id> [--force]
+agentpod tenant list [--format json|table]
+agentpod tenant status <tenant-id> [--format json]
+
+# Pod 生命周期
+agentpod pod create <tenant-id>/agent [--type openclaw] [--config config.json]
+agentpod pod delete <tenant-id>/agent [--force]
+agentpod pod list [--tenant <tenant-id>] [--format json|table]
+agentpod pod status <tenant-id>/agent [--format json]
 
 # 运维操作
-agentpod restart <tenant-id>
-agentpod upgrade <tenant-id> [--image openclaw:2026.2.15]
-agentpod upgrade --all [--image openclaw:2026.2.15]
-agentpod logs <tenant-id> [--tail 50] [--follow]
+agentpod pod restart <tenant-id>/agent
+agentpod pod upgrade <tenant-id>/agent [--image openclaw:2026.2.15]
+agentpod pod upgrade --all [--image openclaw:2026.2.15]
+agentpod pod logs <tenant-id>/agent [--tail 50] [--follow]
+
+# 迁移（已有 OpenClaw 容器纳入管理）
+agentpod migrate discover          # 扫描本机运行的 OpenClaw 容器
+agentpod migrate adopt --all       # 全部纳入 AgentPod 管理
 
 # 诊断（Harness 入口）
 agentpod doctor                    # 检查系统依赖（Docker、Traefik、DB）
@@ -77,8 +87,8 @@ agentpod reconcile --dry-run       # 预览调和动作（不执行）
 agentpod reconcile                 # 立即执行一次调和
 
 # 配置管理
-agentpod config get <tenant-id>
-agentpod config set <tenant-id> --key model --value "anthropic/claude-opus-4-6"
+agentpod config get <tenant-id>/agent
+agentpod config set <tenant-id>/agent --key model --value "anthropic/claude-opus-4-6"
 ```
 
 ### CLI 输出规范
@@ -86,20 +96,30 @@ agentpod config set <tenant-id> --key model --value "anthropic/claude-opus-4-6"
 每个命令返回**机器可解析**的 JSON（`--format json`），默认人类可读表格：
 
 ```bash
-$ agentpod list
-┌────────┬──────────┬────────┬───────┬──────────┐
-│ Tenant │ Status   │ Health │ CPU   │ Memory   │
-├────────┼──────────┼────────┼───────┼──────────┤
-│ acme   │ running  │ ok     │ 12%   │ 256 MB   │
-│ beta   │ running  │ warn   │ 45%   │ 480 MB   │
-│ gamma  │ stopped  │ -      │ -     │ -        │
-└────────┴──────────┴────────┴───────┴──────────┘
+$ agentpod pod list
+┌──────────────┬──────────┬────────┬───────┬──────────┐
+│ Pod          │ Status   │ Health │ CPU   │ Memory   │
+├──────────────┼──────────┼────────┼───────┼──────────┤
+│ acme/agent   │ running  │ ok     │ 12%   │ 256 MB   │
+│ beta/agent   │ running  │ warn   │ 45%   │ 480 MB   │
+│ mega/cs      │ running  │ ok     │ 8%    │ 200 MB   │
+│ mega/hr      │ stopped  │ -      │ -     │ -        │
+└──────────────┴──────────┴────────┴───────┴──────────┘
 
-$ agentpod list --format json
+$ agentpod tenant status mega
+┌──────────┬──────────┬────────┐
+│ Pod      │ Status   │ Health │
+├──────────┼──────────┼────────┤
+│ mega/cs  │ running  │ ok     │
+│ mega/hr  │ stopped  │ -      │
+└──────────┴──────────┴────────┘
+
+$ agentpod pod list --format json
 [
-  {"tenant":"acme","status":"running","health":"ok","cpu":12,"memoryMB":256},
-  {"tenant":"beta","status":"running","health":"warn","cpu":45,"memoryMB":480},
-  {"tenant":"gamma","status":"stopped","health":null,"cpu":null,"memoryMB":null}
+  {"pod":"acme/agent","status":"running","health":"ok","cpu":12,"memoryMB":256},
+  {"pod":"beta/agent","status":"running","health":"warn","cpu":45,"memoryMB":480},
+  {"pod":"mega/cs","status":"running","health":"ok","cpu":8,"memoryMB":200},
+  {"pod":"mega/hr","status":"stopped","health":null,"cpu":null,"memoryMB":null}
 ]
 ```
 
@@ -189,7 +209,7 @@ $ agentpod list --format json
 - 每次 PR 运行（CI L2）
 
 **E2E 测试（全栈 Live）：**
-- 测试对象：`agentpod create → status → health → delete` 全流程
+- 测试对象：`agentpod tenant create → pod create → pod status → health → pod delete` 全流程
 - 需要真实 Docker 环境
 - 每日 nightly 运行（CI L3）
 - 可选：需要真实 OpenClaw 镜像（`LIVE=1`）
@@ -219,7 +239,7 @@ pnpm test:e2e -- --filter=<feature>
 ### 最小复现入口
 ```bash
 # 如果测试失败，用这个命令复现
-agentpod doctor && agentpod create test-tenant && agentpod health test-tenant
+agentpod doctor && agentpod tenant create test && agentpod pod create test/agent --type openclaw && agentpod health test
 ```
 ```
 
@@ -260,10 +280,10 @@ pnpm test:integration -- --filter=reconciler
 
 ### 最小复现
 # 创建一个租户 → 手动 kill 容器 → 等待 30s → 验证自动恢复
-agentpod create test-pod
-docker kill agentpod-test-pod
+agentpod tenant create test && agentpod pod create test/agent --type openclaw
+docker kill agentpod-test-agent
 sleep 35
-agentpod status test-pod  # 应显示 status: running
+agentpod pod status test/agent  # 应显示 status: running
 
 ### 风险
 - Docker API 连接超时可能导致 reconcile 延迟
@@ -326,25 +346,27 @@ wscat -c ws://openclaw.localhost
 1. Monorepo 搭建（Turborepo + pnpm）
 2. Core 层：Reconciler 状态机 + TenantManager + 端口分配器
 3. Services 层：Docker API 封装 (dockerode) + PostgreSQL schema
-4. Harness 层：`agentpod create / delete / status / health / reconcile`
+4. Harness 层：`agentpod tenant / pod / health / reconcile / migrate`
 
 **闭环验证**：
 ```bash
 agentpod doctor
 # → 检查 Docker、PostgreSQL、Traefik 依赖 ✅
 
-agentpod create acme --type openclaw
+agentpod tenant create acme
+agentpod pod create acme/agent --type openclaw
 # → 自动分配端口、创建 Volume、启动容器 ✅
 
-agentpod status acme
+agentpod pod status acme/agent
 # → 显示 running + 健康状态 ✅
 
-docker kill agentpod-acme
+docker kill agentpod-acme-agent
 sleep 35
-agentpod status acme
+agentpod pod status acme/agent
 # → 自动恢复，显示 running ✅
 
-agentpod delete acme
+agentpod pod delete acme/agent
+agentpod tenant delete acme
 # → 停止容器、清理 Volume ✅
 ```
 
@@ -366,11 +388,12 @@ agentpod delete acme
 pnpm --filter dashboard dev
 
 # 通过 CLI 创建租户，Dashboard 实时显示
-agentpod create demo --type openclaw
-# → Dashboard 租户列表自动出现 "demo"
+agentpod tenant create demo
+agentpod pod create demo/agent --type openclaw
+# → Dashboard 自动出现 "demo" Tenant 及其 Pod
 
-# Dashboard 中创建租户
-# → CLI `agentpod list` 同步显示
+# Dashboard 中创建 Tenant + Pod
+# → CLI `agentpod pod list` 同步显示
 ```
 
 ---
@@ -389,18 +412,18 @@ agentpod create demo --type openclaw
 docker compose up -d
 # → Control Plane + Dashboard + Traefik + PostgreSQL 全部启动
 
-agentpod create tenant-1 --type openclaw
-agentpod create tenant-2 --type openclaw
-agentpod create tenant-3 --type openclaw
+agentpod tenant create client-1 && agentpod pod create client-1/agent --type openclaw
+agentpod tenant create client-2 && agentpod pod create client-2/agent --type openclaw
+agentpod tenant create client-3 && agentpod pod create client-3/agent --type openclaw
 
-agentpod list
-# → 3 个租户全部 running
+agentpod pod list
+# → 3 个 Pod 全部 running
 
 # 模拟故障
-docker kill agentpod-tenant-2
+docker kill agentpod-client-2-agent
 sleep 35
 agentpod health
-# → tenant-2 自动恢复 ✅
+# → client-2/agent 自动恢复 ✅
 
 # 查看事件日志
 agentpod events --tail 10

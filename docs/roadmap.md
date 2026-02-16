@@ -93,6 +93,6 @@ agentpod/
 - [ ] 多管理员 + RBAC
 - [ ] Prometheus metrics export
 - [ ] Webhook 通知（Pod 状态变更 -> 回调 URL）
-- [ ] CLI 工具 (`agentpod create / list / delete / logs`)
+- [ ] CLI 工具 (`agentpod tenant / pod / health / doctor / migrate`)
 
 ---

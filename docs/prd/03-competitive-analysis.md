@@ -19,7 +19,7 @@ Layer 2: 通用 PaaS（Coolify / CapRover / Dokku）
 Layer 3: AI 平台（Dify / Coze / 白标平台）
          ↓ "懂 AI 但不是同代 Agent"
 
-AgentPod 定位: Layer 1.5 —— Agent-Aware 的编排层
+AgentPod 定位: Layer 1.5 —— Agent-Aware 的产品化交付层
 ```
 
 ---
@@ -260,16 +260,17 @@ AgentPod:  "用你自己的 Agent（OpenClaw），我帮你管理多个实例"
 
 ### AgentPod 是什么
 
-> **Agent-Aware 的多租户容器编排平台**
+> **Agent-Aware 的 AI Agent 产品化交付平台**
 >
-> 为 SaaS 开发者提供 OpenClaw 实例的声明式管理：
-> 一条命令创建租户，30 秒自动恢复故障，Dashboard 统一监控。
+> 让 SaaS 开发者像开通 SaaS 账号一样为客户部署即开即用的数字员工：
+> 两条命令创建 Tenant + Pod，30 秒自动恢复故障，Dashboard 统一监控。
+> 终端客户收到的是即开即用的 Agent，不需要知道 OpenClaw、Docker 的存在。
 
 ### AgentPod 不是什么
 
 | 不是 | 原因 |
 |------|------|
-| 通用 PaaS | 只做 Agent 编排，不替代 Coolify |
+| 通用 PaaS | 只做 Agent 产品化交付，不替代 Coolify |
 | AI 工作流平台 | 不替代 Dify/n8n，不构建 Agent |
 | 白标 SaaS | 不提供托管服务，只提供管理工具 |
 | Kubernetes | 不做通用容器编排 |

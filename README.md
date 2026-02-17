@@ -15,20 +15,20 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 ```
               Before                                  Now
 
-  Manual deployment of N agents:            AgentPod framework:
-  docker run agent-1                        agentpod create alice --type openclaw
-  docker run agent-2                        agentpod create bob --type openclaw
-  docker run agent-3                        agentpod create carol --type open-webui
-  Manually configure Traefik routes...      -> Auto subdomain, volume, token
-  Manually write health check scripts...    -> Auto health checks + self-healing
-  Manually manage each agent's config...    -> Unified dashboard management
+  Manual deployment of N agents:            AgentPod:
+  docker run agent-1                        agentpod tenant create alice
+  docker run agent-2                        agentpod pod create alice/agent --type openclaw
+  docker run agent-3                        agentpod tenant create bob
+  Manually configure Traefik routes...      agentpod pod create bob/agent --type openclaw
+  Manually write health check scripts...    -> Auto subdomain, volume, health, self-healing
+  Manually manage each agent's config...    -> Unified dashboard + CLI management
 ```
 
 ## Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **Agent-Aware Orchestration** | Not a generic PaaS. Understands agent identity (SOUL.md), memory (MEMORY.md), messaging channels, and BYOK tokens |
+| **Agent-Aware Orchestration** | Not a generic PaaS. Understands agent config structure, port rules, channel bindings, and health semantics through the Adapter interface |
 | **Pluggable Adapter System** | Support any containerized agent by implementing a single `AgentAdapter` interface. OpenClaw is the first, more planned |
 | **Per-Tenant Container Isolation** | Every tenant gets an independent Docker container + volume. No shared filesystem, no noisy neighbors |
 | **Reconciliation Engine** | Desired state vs actual state auto-alignment. Container crashed? Auto-rebuilt. Config changed? Auto-restarted |
@@ -71,10 +71,10 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 - **Dashboard**: Next.js 15+ (App Router) + shadcn/ui + Tailwind CSS
 - **Control Plane**: Hono (long-running Node.js process)
 - **Database**: PostgreSQL
-- **Reverse Proxy**: Traefik v3 (Docker label auto-discovery)
+- **Reverse Proxy**: Traefik v3.4+ (Docker label auto-discovery, version pinned)
 - **Container Runtime**: Docker API (direct, single-node MVP)
 - **Auth**: NextAuth v5 (admin only)
-- **Real-time**: SSE (Dashboard status push) + WebSocket (Agent health heartbeat)
+- **Real-time**: SSE (Dashboard status push)
 
 ## Documentation
 
@@ -95,10 +95,15 @@ AgentPod is an open-source multi-tenant AI agent orchestration framework. It man
 The target deployment experience:
 
 ```bash
-git clone https://github.com/yyforever/agentpod.git
-cd agentpod
-docker compose up -d
-# Open http://localhost:3000 -> Dashboard
+# One-line install (handles Docker, database, reverse proxy automatically)
+curl -fsSL https://get.agentpod.dev | bash
+
+# Create your first tenant and agent
+agentpod tenant create acme
+agentpod pod create acme/agent --type openclaw
+
+# Open Dashboard
+# -> http://your-server:3000
 ```
 
 ## Contributing

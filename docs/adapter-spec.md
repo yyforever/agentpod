@@ -23,7 +23,7 @@ type AgentAdapter = {
     label: string              // "OpenClaw Gateway"
     description: string        // 一句话描述
     version: string            // Adapter 版本
-    category: 'ai-assistant' | 'ai-workflow' | 'database' | 'custom'
+    category: 'ai-assistant' | 'ai-workflow' | 'custom'
     tags: string[]             // 搜索标签
     logo?: string              // SVG 路径
   }
@@ -82,6 +82,17 @@ type AgentAdapter = {
       action: 'none' | 'hot-reload' | 'restart' | 'recreate'
     }>
     onBeforeDelete?: (ctx: LifecycleContext) => Promise<void>
+  }
+
+  // === Agent 级健康探测（可选，补充 Docker healthcheck）===
+  healthProbe?: {
+    // Docker healthcheck 只检测容器存活（进程在跑）
+    // healthProbe 检测 Agent 是否真正可用（协议级语义）
+    probe: (ctx: HealthProbeContext) => Promise<{
+      healthy: boolean
+      message?: string         // "WebSocket connected" / "Gateway not responding"
+    }>
+    intervalSeconds: number    // 探测间隔
   }
 
   // === 核心方法：模板 + 用户配置 -> 最终 Docker 参数 ===
@@ -344,7 +355,6 @@ export const openclawAdapter: AgentAdapter = {
 |----------|------|------|
 | `src/adapters/openclaw.ts` | 内置 Adapter | TypeScript 代码，完整生命周期钩子 |
 | `src/adapters/open-webui.ts` | 内置 Adapter | 同上 |
-| `templates/agents/*.yaml` | 社区模板 | YAML 声明式，无代码（类似 Coolify 模板） |
 | PostgreSQL `pod_configs` | 用户配置 | 每租户的自定义配置，运行时验证 |
 | PostgreSQL `pod_status` | Pod 状态 | 由调和引擎写入，Dashboard 读取 |
 

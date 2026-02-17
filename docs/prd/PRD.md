@@ -226,7 +226,7 @@ Harness（CLI）→ Shell（Dashboard/API）→ Core（纯逻辑）→ Services�
 | **Pod 列表** | 显示所有 Pod 状态、健康、资源用量 | `agentpod pod list` |
 | **Tenant 状态** | 按 Tenant 聚合显示 Pod 信息 | `agentpod tenant status <id>` |
 | **Reconciliation Loop** | 每 30s 对比期望/实际状态，自动创建/重启/清理容器 | `agentpod reconcile` |
-| **健康检查** | HTTP + WebSocket heartbeat 双重检测 | `agentpod health` |
+| **健康检查** | Adapter 定义协议级健康检查（如 HTTP、WebSocket heartbeat 等） | `agentpod health` |
 | **系统诊断** | 检查 Docker、PostgreSQL、Traefik 依赖是否就绪 | `agentpod doctor` |
 | **Dashboard 基础** | Tenant/Pod 列表 + 创建表单 + 状态概览 | Web UI |
 | **管理员认证** | 单管理员登录 | NextAuth v5 |
@@ -328,7 +328,7 @@ Harness（CLI）→ Shell（Dashboard/API）→ Core（纯逻辑）→ Services�
 
 ### Phase 3: 稳定性与发布（Week 5-6）
 
-- 健康检查（HTTP + WebSocket heartbeat）
+- 健康检查（由 Adapter 定义协议级检查方式）
 - 资源监控（docker stats 聚合）
 - 事件日志
 - 一行安装脚本（自动处理 Docker + 数据库 + 反向代理）

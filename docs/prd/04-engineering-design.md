@@ -37,6 +37,26 @@
 └─────────────────────────────────────────────┘
 ```
 
+**与部署架构的关系**：
+
+[architecture.md](../architecture.md) 定义的是部署架构（进程怎么分布），本文定义的是代码架构（模块怎么组织）。两者是不同维度：
+
+```
+部署架构（进程）                   代码架构（模块）
+┌──────────────────────┐
+│ Dashboard (Next.js)   │  →  Shell 层（页面 + BFF API Routes）
+├──────────────────────┤
+│ Control Plane (Hono)  │  →  Harness 层（CLI 命令）
+│                       │     Core 层（Reconciler / TenantManager / AdapterEngine）
+│                       │     Services 层（Docker API / PostgreSQL 封装）
+├──────────────────────┤
+│ Data Plane            │  →  被 Services 层调用的外部系统
+│ (Traefik + Docker)    │     （不是 AgentPod 的代码，是运行时依赖）
+└──────────────────────┘
+```
+
+部署架构决定进程边界，代码架构决定依赖方向。Core 层是核心——无论从 CLI（Harness）还是 Dashboard（Shell）调用，最终都走 Core 层逻辑。
+
 **关键约束**：
 - **Core 不依赖 Shell**：业务逻辑不需要 Dashboard 也能运行
 - **Harness 直接调用 Core**：CLI 命令 = Core 函数 + 格式化输出
@@ -89,6 +109,9 @@ agentpod reconcile                 # 立即执行一次调和
 # 配置管理
 agentpod config get <tenant-id>/agent
 agentpod config set <tenant-id>/agent --key model --value "anthropic/claude-opus-4-6"
+# TODO: config set 的交互方式需在实现时细化设计
+#   Adapter configSchema 是 Zod 嵌套结构，单 key-value 可能不够用
+#   候选方案：dot notation（a.b.c）、JSON patch、--config file.json 整体覆盖
 ```
 
 ### CLI 输出规范
@@ -309,7 +332,8 @@ agentpod pod status test/agent  # 应显示 status: running
 ```
 ┌────────────────────────────────────────────────┐
 │ L1: 每次 Commit                                 │
-│ - lint + format (oxlint + oxfmt)               │
+│ - lint + format (TODO: 选型待定，要求主流且新)   │
+│   候选: Biome / ESLint 9 + Prettier             │
 │ - type check (tsc --noEmit)                    │
 │ - unit tests (vitest --coverage)               │
 │ - 耗时 < 2 分钟                                 │
@@ -317,7 +341,8 @@ agentpod pod status test/agent  # 应显示 status: running
 │ L2: 每次 PR Merge                               │
 │ - L1 全部                                       │
 │ - integration tests                             │
-│ - build check (tsdown)                         │
+│ - build check (TODO: 选型待定)                   │
+│   候选: tsup / tsdown / unbuild / 纯 tsc        │
 │ - 耗时 < 5 分钟                                 │
 ├────────────────────────────────────────────────┤
 │ L3: 每日 Nightly                                │
@@ -377,12 +402,23 @@ sleep 35
 agentpod pod status acme/agent
 # → 自动恢复，显示 running ✅
 
+# 迁移已有容器（用户最常见的入口路径）
+# 前提：机器上已有手动部署的 OpenClaw 容器在运行
+agentpod migrate discover
+# → 发现 2 个未纳管的 OpenClaw 容器 ✅
+
+agentpod migrate adopt --all
+# → 容器零中断纳入管理，DB 中创建对应 Tenant + Pod 记录 ✅
+
+agentpod pod list
+# → 包含迁移进来的 Pod，状态 running ✅
+
 agentpod pod delete acme/agent
 agentpod tenant delete acme
 # → 停止容器、清理 Volume ✅
 ```
 
-**测试覆盖**：Core 层 Unit 80%+ / Integration 覆盖 Reconciler + Docker 交互
+**测试覆盖**：Core 层 Unit 80%+ / Integration 覆盖 Reconciler + Docker 交互 + Migrate 发现与接管
 
 ---
 
@@ -394,18 +430,36 @@ agentpod tenant delete acme
 3. 租户列表 / 创建 / 详情页
 4. 实时状态更新（SSE）
 
-**闭环验证**：
+**闭环验证（CLI 闭环）**：
 ```bash
-# Dashboard 启动
-pnpm --filter dashboard dev
+# Phase 1 的所有 CLI 验证继续通过
+agentpod doctor && agentpod tenant create demo && agentpod pod create demo/agent --type openclaw
+agentpod pod status demo/agent   # → running ✅
+agentpod pod delete demo/agent && agentpod tenant delete demo
+```
 
-# 通过 CLI 创建租户，Dashboard 实时显示
-agentpod tenant create demo
-agentpod pod create demo/agent --type openclaw
-# → Dashboard 自动出现 "demo" Tenant 及其 Pod
+**闭环验证（Dashboard 闭环）**：
+```
+1. 访问 Dashboard URL → 显示登录页
+2. 管理员登录（NextAuth） → 进入概览页 ✅
+3. 点击"创建租户" → 填写表单 → 提交 → 租户出现在列表中 ✅
+4. 点击"创建 Pod" → 选择 Agent 类型 → 填写配置（Adapter configSchema 自动渲染） → 提交 ✅
+5. Pod 列表实时显示状态变化（pending → creating → running） ✅
+6. 进入 Pod 详情页 → 查看状态、配置、日志 ✅
+7. 点击"停止" → 状态变为 stopped → 点击"启动" → 状态变为 running ✅
+8. 点击"删除" → 确认弹窗 → Pod 从列表消失 ✅
+```
 
-# Dashboard 中创建 Tenant + Pod
-# → CLI `agentpod pod list` 同步显示
+**闭环验证（双向同步）**：
+```bash
+# CLI 创建 → Dashboard 实时显示
+agentpod tenant create sync-test && agentpod pod create sync-test/agent --type openclaw
+# → Dashboard 自动出现 "sync-test" 及其 Pod ✅
+
+# Dashboard 创建 → CLI 可见
+# （在 Dashboard 中创建 Tenant "web-test" + Pod）
+agentpod pod list
+# → 包含 web-test 的 Pod ✅
 ```
 
 ---
@@ -413,7 +467,7 @@ agentpod pod create demo/agent --type openclaw
 ### Phase 3: 稳定性与运维（Week 5-6）
 
 **交付物**：
-1. 健康检查 + 自动重启（含 Gateway heartbeat）
+1. 健康检查 + 自动重启（由 Adapter 定义协议级健康检查方式）
 2. 资源监控（docker stats 聚合）
 3. 事件日志（create/delete/restart/error 记录）
 4. 安装脚本（一行命令自动处理 Docker + 数据库 + 反向代理）

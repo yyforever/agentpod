@@ -416,13 +416,13 @@ agentpod pod create demo/agent --type openclaw
 1. 健康检查 + 自动重启（含 Gateway heartbeat）
 2. 资源监控（docker stats 聚合）
 3. 事件日志（create/delete/restart/error 记录）
-4. `docker compose` 一键部署
+4. 安装脚本（一行命令自动处理 Docker + 数据库 + 反向代理）
 
 **闭环验证**：
 ```bash
-# 一键部署
-docker compose up -d
-# → Control Plane + Dashboard + Traefik + PostgreSQL 全部启动
+# 一行安装命令（用户唯一需要执行的步骤）
+curl -fsSL https://get.agentpod.dev | bash
+# → 安装脚本自动处理 Docker、创建网络、拉起 Control Plane + Dashboard + Traefik + PostgreSQL
 
 agentpod tenant create client-1 && agentpod pod create client-1/agent --type openclaw
 agentpod tenant create client-2 && agentpod pod create client-2/agent --type openclaw

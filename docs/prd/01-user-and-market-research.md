@@ -57,16 +57,17 @@ AI Agent 正在改变 SaaS 的交付方式。未来 SaaS 不再是"提供一个�
 
 ### 使用门槛
 
-AgentPod 屏蔽了 Docker 网络、Traefik 配置、端口派生等基础设施复杂度。用户只需要：
-- 能在 VPS / 云服务器上运行 `docker compose up`
-- 能在 Dashboard 中填写表单、点击按钮
-- 不需要懂 Docker 网络、反向代理、端口管理
+AgentPod 屏蔽了 Docker、Traefik、网络配置、端口管理等全部基础设施复杂度。用户只需要：
+- 有一台 VPS / 云服务器（能 SSH 登录）
+- 执行一行安装命令（安装脚本自动处理 Docker、数据库、反向代理等所有依赖）
+- 之后通过 Dashboard 填写表单或 CLI 执行命令管理 Agent
+- 不需要懂 Docker、反向代理、端口管理、网络配置
 
 ### 不服务的用户
 
 | 排除对象 | 原因 |
 |----------|------|
-| 个人 AI 玩家 | 单实例 Docker Compose 已足够 |
+| 个人 AI 玩家 | 只需一个 Agent 实例，不需要多租户管理 |
 | 大型企业 IT 部门 | 有能力自建 K8s 集群 |
 
 ---
@@ -407,7 +408,7 @@ agentpod pod upgrade --tenant megacorp --image openclaw:2026.2.15
        摩擦点: 是否值得从现有脚本迁移？ROI 不明确
 
 阶段 1.5: 迁移已有实例（Day 0-1，可选）
-  ├── docker compose up -d（启动 AgentPod）
+  ├── 执行一行安装命令（启动 AgentPod）
   ├── agentpod migrate discover（扫描已有 OpenClaw 容器）
   ├── 确认发现结果，agentpod migrate adopt --all
   └── 已有容器零中断纳入管理

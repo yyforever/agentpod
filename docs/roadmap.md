@@ -72,10 +72,10 @@ agentpod/
 - [ ] 资源监控 (读取 docker stats -> 写入 pod_status)
 - [ ] Pod 事件日志 (创建/启动/停止/重启/错误)
 - [ ] 实现 Open WebUI Adapter（验证 Adapter 架构通用性）
-- [ ] docker-compose.yml 一键部署（控制面 + Traefik + PostgreSQL）
+- [ ] 安装脚本（一行命令自动处理 Docker + docker-compose + 数据库 + 反向代理）
 - [ ] README + 快速开始文档
 
-**交付物**: `docker compose up` 一键启动，管理 OpenClaw 和 Open WebUI 两种 Agent 类型
+**交付物**: 一行安装命令即启动全套平台，管理 OpenClaw 和 Open WebUI 两种 Agent 类型
 
 ## 后续阶段
 

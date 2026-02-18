@@ -21,6 +21,7 @@ function normalizePod(row: typeof pods.$inferSelect): Pod {
 
 export class ReconcileService {
   private timer: NodeJS.Timeout | null = null
+  private running = false
 
   constructor(
     private readonly db: DbClient,
@@ -68,10 +69,17 @@ export class ReconcileService {
     }
 
     const run = async () => {
+      if (this.running) {
+        return
+      }
+
+      this.running = true
       try {
         await this.reconcileOnce()
       } catch (error) {
         console.error('Reconciler loop failed', error)
+      } finally {
+        this.running = false
       }
     }
 

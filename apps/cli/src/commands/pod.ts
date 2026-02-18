@@ -27,9 +27,11 @@ export function createPodCommands(podService: PodService): Command {
     .command('list')
     .description('List pods')
     .option('--tenant <tenantId>', 'Filter by tenant id')
-    .action(async (options: { tenant?: string }) => {
+    .option('--tenant-id <tenantId>', 'Filter by tenant id (alias)')
+    .action(async (options: { tenant?: string; tenantId?: string }) => {
       try {
-        const pods = await podService.list(options.tenant)
+        const tenantId = options.tenant ?? options.tenantId
+        const pods = await podService.list(tenantId)
         printTable(
           pods.map((pod) => ({
             id: pod.id,
@@ -50,26 +52,40 @@ export function createPodCommands(podService: PodService): Command {
   command
     .command('create')
     .description('Create a pod')
-    .requiredOption('--tenant <tenantId>', 'Tenant id')
+    .option('--tenant <tenantId>', 'Tenant id')
+    .option('--tenant-id <tenantId>', 'Tenant id (alias)')
     .requiredOption('--name <name>', 'Pod name')
-    .requiredOption('--adapter <adapterId>', 'Adapter id')
+    .option('--adapter <adapterId>', 'Adapter id')
+    .option('--adapter-id <adapterId>', 'Adapter id (alias)')
     .option('--config <json>', 'JSON config string')
     .action(
       async (options: {
-        tenant: string
+        tenant?: string
+        tenantId?: string
         name: string
-        adapter: string
+        adapter?: string
+        adapterId?: string
         config?: string
       }) => {
         try {
+          const tenantId = options.tenantId ?? options.tenant
+          const adapterId = options.adapterId ?? options.adapter
+          if (!tenantId || !adapterId) {
+            throw new CoreError(
+              'VALIDATION_ERROR',
+              '--tenant/--tenant-id and --adapter/--adapter-id are required',
+              400,
+            )
+          }
+
           const config = options.config
             ? (JSON.parse(options.config) as Record<string, unknown>)
             : undefined
 
           const pod = await podService.create({
-            tenantId: options.tenant,
+            tenantId,
             name: options.name,
-            adapterId: options.adapter,
+            adapterId,
             config,
           })
 

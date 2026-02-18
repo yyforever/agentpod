@@ -120,8 +120,28 @@
 - Traefik 自动从 Docker labels 发现路由规则 ✅
 - **结论：Traefik latest + Docker labels 模式可行，必须用 v3.5+**
 
+### Step 7: P0-3 API 认证 + P0-4 Secrets 加密
+- **工具**：CX (gpt-5.3-codex, high)，~25min，103K tokens
+- **P0-3 API Key Auth**：
+  - `AGENTPOD_API_KEY` 环境变量，Bearer token 中间件
+  - 未设置时 dev mode passthrough（启动时警告）
+  - CLI `--api-key` 选项，优先级：flag > env > ~/.agentpod/config.json
+- **P0-4 Secrets Encryption**：
+  - `AGENTPOD_ENCRYPTION_KEY`（32 字节 hex），AES-256-GCM
+  - gateway_token 入库加密、读出解密
+  - 未设置时明文存储（dev mode）
+- 新增 4 个测试（crypto roundtrip、invalid key、tamper detect、encryption-at-rest）
+- **总测试数：21 个（7 core + 14 API），全部通过**
+- commit `9bf7fb8`
+
+### Step 8: 调和器并发锁 + .gitignore + 清理构建产物
+- 调和器加 `running` 互斥标志，防止并发调和创建重复容器
+- .gitignore 排除 node_modules/dist/*.tgz/.turbo/.env/*.tsbuildinfo
+- 清理 src/ 下误提交的 .js/.d.ts 构建产物（-1755 行）
+- commit `e4fc333`, `f35f69f`
+
 ### 待办
-- [ ] 修复调和器孤儿容器 bug（P1：每轮创建新容器）
+- [ ] 验证孤儿容器 bug 是否已修复（并发锁）
 - [ ] P0-3: API 认证方案设计
 - [ ] P0-4: Secrets 加密方案设计
 - [ ] .gitignore 排除 dist/

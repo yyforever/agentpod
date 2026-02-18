@@ -86,7 +86,7 @@ function installApiKeyHeader(apiKey: string | undefined): void {
   }
 
   const originalFetch = globalThis.fetch.bind(globalThis)
-  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
     const headers = new Headers(input instanceof Request ? input.headers : undefined)
 
     if (init?.headers) {

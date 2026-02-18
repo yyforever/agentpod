@@ -8,6 +8,7 @@ import { z } from 'zod'
 import type { AgentAdapter, ContainerSpec, Pod } from '@agentpod/shared'
 import {
   AdapterRegistry,
+  CoreError,
   PodService,
   ReconcileService,
   TenantService,
@@ -193,8 +194,10 @@ if (!databaseUrl) {
 
     await podService.delete(pod.id)
     await reconciler.reconcileOnce()
-    updated = await podService.getById(pod.id)
-    assert.equal(updated.actual_status, 'stopped')
-    assert.equal(updated.container_id, null)
+
+    await assert.rejects(
+      podService.getById(pod.id),
+      (error: unknown) => error instanceof CoreError && error.code === 'NOT_FOUND',
+    )
   })
 }

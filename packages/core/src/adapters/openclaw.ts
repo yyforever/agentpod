@@ -36,13 +36,7 @@ export const openclawAdapter: AgentAdapter = {
       NPM_CONFIG_PREFIX: '/home/node/.npm-global',
       PATH: '/home/node/.npm-global/bin:/usr/local/bin:/usr/bin:/bin',
     },
-    volumes: [
-      {
-        containerPath: '/home/node',
-        source: '{{pod.dataDir}}',
-        persistent: true,
-      },
-    ],
+    volumes: [],
     ports: [
       {
         container: 18789,
@@ -174,10 +168,13 @@ export const openclawAdapter: AgentAdapter = {
         PLATFORM_DOMAIN: platform.domain,
         ...mappedEnv,
       },
-      volumes: openclawAdapter.containerSpec.volumes.map((volume) => ({
-        ...volume,
-        source: applyTemplate(volume.source, platform),
-      })),
+      volumes: [
+        {
+          containerPath: '/home/node',
+          source: platform.dataDir,
+          persistent: true,
+        },
+      ],
     }
   },
 }

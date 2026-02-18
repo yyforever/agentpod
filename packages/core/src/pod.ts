@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { ZodError } from 'zod'
@@ -169,9 +169,7 @@ export class PodService {
       created_at: now,
       updated_at: now,
     }
-
-    await mkdir(dataDir, { recursive: true })
-
+    let initialFiles: Array<{ path: string; content: string }> = []
     if (adapter.lifecycle.onBeforeCreate) {
       const result = await adapter.lifecycle.onBeforeCreate({
         pod,
@@ -181,10 +179,7 @@ export class PodService {
           dataDir,
         },
       })
-
-      if (result.initialFiles && result.initialFiles.length > 0) {
-        await writeInitialFiles(dataDir, result.initialFiles)
-      }
+      initialFiles = result.initialFiles ?? []
     }
 
     await this.db.transaction(async (tx) => {
@@ -219,6 +214,16 @@ export class PodService {
         created_at: now,
       })
     })
+
+    try {
+      await mkdir(dataDir, { recursive: true })
+      if (initialFiles.length > 0) {
+        await writeInitialFiles(dataDir, initialFiles)
+      }
+    } catch (error) {
+      await rm(dataDir, { recursive: true, force: true })
+      throw error
+    }
 
     return pod
   }

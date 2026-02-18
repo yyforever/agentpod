@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { eq, ne } from 'drizzle-orm'
 import type { Pod, PodActualStatus, PodEventType } from '@agentpod/shared'
 import type { AdapterRegistry } from './adapter.js'
 import type { DbClient } from './db/index.js'
@@ -37,7 +37,7 @@ export class ReconcileService {
       })
       .from(pods)
       .leftJoin(podConfigs, eq(podConfigs.pod_id, pods.id))
-      .where(inArray(pods.desired_status, ['running', 'stopped', 'deleted']))
+      .where(ne(pods.desired_status, pods.actual_status))
 
     const result: ReconcileResult = {
       total: rows.length,
@@ -52,7 +52,7 @@ export class ReconcileService {
         result.success += 1
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        await this.writeActualStatus(row.pod.id, 'error', row.pod.container_id, message)
+        await this.writeActualStatus(row.pod.id, 'error', row.pod.container_id ?? null, message)
         await this.logEvent(row.pod.id, 'error', message)
         result.failed += 1
         result.errors.push({ podId: row.pod.id, message })
@@ -106,7 +106,7 @@ export class ReconcileService {
   private async writeActualStatus(
     podId: string,
     actualStatus: PodActualStatus,
-    containerId?: string | null,
+    containerId: string | null,
     message?: string,
   ): Promise<void> {
     const now = new Date()
@@ -115,7 +115,7 @@ export class ReconcileService {
       .update(pods)
       .set({
         actual_status: actualStatus,
-        ...(containerId !== undefined ? { container_id: containerId } : {}),
+        container_id: containerId,
         updated_at: now,
       })
       .where(eq(pods.id, podId))
@@ -138,6 +138,10 @@ export class ReconcileService {
           updated_at: now,
         },
       })
+  }
+
+  private async deletePod(podId: string): Promise<void> {
+    await this.db.delete(pods).where(eq(pods.id, podId))
   }
 
   private async reconcilePod(
@@ -225,7 +229,7 @@ export class ReconcileService {
 
     if (pod.desired_status === 'deleted') {
       if (!hasContainer) {
-        await this.writeActualStatus(pod.id, 'stopped', null)
+        await this.deletePod(pod.id)
         return
       }
 
@@ -252,8 +256,7 @@ export class ReconcileService {
       }
 
       await this.docker.removeContainer(containerId)
-      await this.writeActualStatus(pod.id, 'stopped', null)
-      await this.logEvent(pod.id, 'deleted', 'Container removed by reconciler')
+      await this.deletePod(pod.id)
     }
   }
 }

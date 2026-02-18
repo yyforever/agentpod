@@ -1,6 +1,6 @@
-import type { db } from './db/index.js'
+import type { DbClient } from './db/index.js'
 
-export type DrizzleDB = typeof db
+export type DrizzleDB = DbClient
 
 export type ReconcileResult = {
   total: number

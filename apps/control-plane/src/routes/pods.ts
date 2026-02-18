@@ -1,22 +1,32 @@
 import { Hono } from 'hono'
+import { CoreError } from '@agentpod/core'
 import type { PodService } from '@agentpod/core'
+import { z } from 'zod'
+
+const createPodBodySchema = z.object({
+  tenant_id: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  adapter_id: z.string().trim().min(1),
+  config: z.record(z.unknown()).optional(),
+})
 
 export function createPodRoutes(podService: PodService): Hono {
   const app = new Hono()
 
   app.post('/pods', async (c) => {
-    const body = (await c.req.json()) as {
-      tenant_id?: string
-      name?: string
-      adapter_id?: string
-      config?: Record<string, unknown>
+    const json = await c.req.json().catch(() => {
+      throw new CoreError('VALIDATION_ERROR', 'invalid JSON body', 400)
+    })
+    const body = createPodBodySchema.safeParse(json)
+    if (!body.success) {
+      throw new CoreError('VALIDATION_ERROR', 'invalid request body', 400, body.error.issues)
     }
 
     const pod = await podService.create({
-      tenantId: body.tenant_id ?? '',
-      name: body.name ?? '',
-      adapterId: body.adapter_id ?? '',
-      config: body.config,
+      tenantId: body.data.tenant_id,
+      name: body.data.name,
+      adapterId: body.data.adapter_id,
+      config: body.data.config,
     })
 
     return c.json(pod, 201)

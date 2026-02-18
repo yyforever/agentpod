@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { Tenant } from '@agentpod/shared'
 import { CoreError } from './errors.js'
@@ -50,17 +50,25 @@ export class TenantService {
   }
 
   async delete(id: string): Promise<void> {
-    const [tenant] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, id))
+    await this.db.transaction(async (tx) => {
+      const lockedTenant = await tx.execute(
+        sql`SELECT id FROM tenants WHERE id = ${id} FOR UPDATE`,
+      )
 
-    if (!tenant) {
-      throw new CoreError('NOT_FOUND', 'tenant not found', 404)
-    }
+      if (lockedTenant.rows.length === 0) {
+        throw new CoreError('NOT_FOUND', 'tenant not found', 404)
+      }
 
-    const [pod] = await this.db.select({ id: pods.id }).from(pods).where(eq(pods.tenant_id, id)).limit(1)
-    if (pod) {
-      throw new CoreError('CONFLICT', 'cannot delete tenant with existing pods', 409)
-    }
+      const [pod] = await tx
+        .select({ id: pods.id })
+        .from(pods)
+        .where(eq(pods.tenant_id, id))
+        .limit(1)
+      if (pod) {
+        throw new CoreError('CONFLICT', 'cannot delete tenant with existing pods', 409)
+      }
 
-    await this.db.delete(tenants).where(eq(tenants.id, id))
+      await tx.delete(tenants).where(eq(tenants.id, id))
+    })
   }
 }

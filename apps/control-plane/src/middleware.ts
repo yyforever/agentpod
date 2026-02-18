@@ -18,7 +18,7 @@ function toErrorResponse(c: Context, error: unknown) {
       body.details = error.details
     }
 
-    return c.json(body, error.statusCode as 400 | 404 | 409 | 500)
+    return c.json(body, error.statusCode)
   }
 
   const fallback = error instanceof Error ? error.message : 'internal server error'

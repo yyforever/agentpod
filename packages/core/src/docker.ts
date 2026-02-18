@@ -5,6 +5,48 @@ function secondsToNanos(seconds: number): number {
   return seconds * 1_000_000_000
 }
 
+function decodeDockerLogBuffer(raw: Buffer): string {
+  if (raw.length < 8) {
+    return raw.toString('utf8')
+  }
+
+  const frames: Buffer[] = []
+  let offset = 0
+
+  while (offset + 8 <= raw.length) {
+    const streamType = raw[offset]
+    const reserved1 = raw[offset + 1]
+    const reserved2 = raw[offset + 2]
+    const reserved3 = raw[offset + 3]
+
+    if (
+      (streamType !== 0 && streamType !== 1 && streamType !== 2) ||
+      reserved1 !== 0 ||
+      reserved2 !== 0 ||
+      reserved3 !== 0
+    ) {
+      return raw.toString('utf8')
+    }
+
+    const frameSize = raw.readUInt32BE(offset + 4)
+    const payloadStart = offset + 8
+    const payloadEnd = payloadStart + frameSize
+
+    if (payloadEnd > raw.length) {
+      return raw.toString('utf8')
+    }
+
+    frames.push(raw.subarray(payloadStart, payloadEnd))
+    offset = payloadEnd
+  }
+
+  if (offset !== raw.length || frames.length === 0) {
+    return raw.toString('utf8')
+  }
+
+  return Buffer.concat(frames).toString('utf8')
+}
+
 function buildTraefikLabels(
   pod: Pod,
   networkName: string,
@@ -116,7 +158,7 @@ export class DockerClient {
       tail: options?.tail ?? 100,
     })
 
-    return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs)
+    return Buffer.isBuffer(logs) ? decodeDockerLogBuffer(logs) : String(logs)
   }
 
   async getContainerByPodId(podId: string) {

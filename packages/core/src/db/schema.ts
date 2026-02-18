@@ -37,7 +37,7 @@ export const pods = pgTable('pods', {
 export const podConfigs = pgTable('pod_configs', {
   pod_id: text('pod_id')
     .primaryKey()
-    .references(() => pods.id),
+    .references(() => pods.id, { onDelete: 'cascade' }),
   config: jsonb('config').$type<Record<string, unknown>>().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
@@ -45,7 +45,7 @@ export const podConfigs = pgTable('pod_configs', {
 export const podStatus = pgTable('pod_status', {
   pod_id: text('pod_id')
     .primaryKey()
-    .references(() => pods.id),
+    .references(() => pods.id, { onDelete: 'cascade' }),
   phase: text('phase').notNull(),
   ready: boolean('ready').default(false),
   message: text('message'),
@@ -58,7 +58,9 @@ export const podStatus = pgTable('pod_status', {
 
 export const podEvents = pgTable('pod_events', {
   id: serial('id').primaryKey(),
-  pod_id: text('pod_id').references(() => pods.id),
+  pod_id: text('pod_id')
+    .notNull()
+    .references(() => pods.id, { onDelete: 'cascade' }),
   event_type: text('event_type').notNull(),
   message: text('message'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),

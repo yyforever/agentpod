@@ -80,6 +80,29 @@
 
 **额外完成**：core 纯逻辑层分离、CLI 工具、3 个集成测试、13 个 review 问题修复
 
+### Step 5: 测试补全 + 端到端验证
+- **工具**：CX (gpt-5.3-codex, high)，~10min
+- 产出：
+  - 14 个 HTTP 路由集成测试（`apps/control-plane/src/__tests__/api.test.ts`，368 行）
+  - 重构 control-plane `createApp()` 工厂函数，bootstrap 与 app 构建分离
+  - `AGENTS.md` 项目指南（给 CX/CC 读）
+- 附带修复：zod 加为 control-plane 显式依赖，tsx 加为 root devDependency
+- commit `03badd2`
+
+**端到端验证（真实 control-plane 进程 + curl）**：
+- 启动 control-plane（port 4000）→ 连真实 PostgreSQL
+- 11 项全部通过：租户 CRUD、Pod 生命周期（创建/停止/启动/删除）、输入校验 400、404、数据目录创建
+- 未覆盖：调和器真实拉起 Docker 容器（测试用 mock）、Traefik 路由
+
+**最终测试覆盖**：
+| 类别 | 数量 | 状态 |
+|---|---|---|
+| Core 服务测试 | 3 | ✅ |
+| HTTP 路由测试 | 14 | ✅ |
+| 端到端手动验证 | 11 | ✅ |
+| tsc --noEmit | - | ✅ 零错误 |
+| pnpm build | 4 packages | ✅ |
+
 ### 待办
 - [ ] Traefik WebSocket 验证（Week 1-2 遗留）
 - [ ] P0-3: API 认证方案设计

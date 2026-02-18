@@ -103,8 +103,25 @@
 | tsc --noEmit | - | ✅ 零错误 |
 | pnpm build | 4 packages | ✅ |
 
+### Step 6: 真实 Docker 调和器 + Traefik 验证
+
+**调和器真实 Docker 验证** ✅
+- 启动 control-plane（AGENTPOD_OPENCLAW_IMAGE=openclaw:local）
+- 创建租户 + Pod → 等 30s 调和 → actual_status 从 pending → running
+- container_id 正确，Docker 容器真实运行（openclaw:local，端口 18789）
+- Stop → actual_status=stopped ✅，Delete → Pod 从 DB 删除（NOT_FOUND）✅
+- **发现 bug**：调和器每轮创建新容器而不是管理已有容器（孤儿容器问题，P1）
+
+**Traefik 子域名路由验证** ✅
+- Traefik v3.4 与宿主 Docker API v1.53 不兼容（Go client 默认 negotiate API 1.24，daemon 最低 1.44）
+- **Traefik latest（v3.5+）修复了此问题**——零错误
+- nginx 测试容器 + Docker labels → `Host: test-pod.localhost` 正确路由到容器 ✅
+- 未知 host → 404 ✅
+- Traefik 自动从 Docker labels 发现路由规则 ✅
+- **结论：Traefik latest + Docker labels 模式可行，必须用 v3.5+**
+
 ### 待办
-- [ ] Traefik WebSocket 验证（Week 1-2 遗留）
+- [ ] 修复调和器孤儿容器 bug（P1：每轮创建新容器）
 - [ ] P0-3: API 认证方案设计
 - [ ] P0-4: Secrets 加密方案设计
 - [ ] .gitignore 排除 dist/

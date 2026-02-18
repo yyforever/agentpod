@@ -1,9 +1,10 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomBytes } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { AgentAdapter, ContainerSpec } from '@agentpod/shared'
 import {
@@ -12,8 +13,10 @@ import {
   PodService,
   TenantService,
   createDb,
+  isEncrypted,
   runMigrations,
 } from '../index.js'
+import { pods } from '../db/schema.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -123,5 +126,43 @@ if (!databaseUrl) {
     await podService.delete(pod.id)
     const deleted = await podService.getById(pod.id)
     assert.equal(deleted.desired_status, 'deleted')
+  })
+
+  test('PodService encrypts gateway_token at rest and decrypts on reads', async () => {
+    const tenantService = new TenantService(client.db)
+    const tenant = await tenantService.create({ name: 'Tenant Encrypted Token' })
+
+    const adapters = new AdapterRegistry()
+    adapters.register(testAdapter)
+
+    const encryptionKey = randomBytes(32).toString('hex')
+    const podService = new PodService(client.db, new DockerClient(), adapters, {
+      domain: 'localhost',
+      dataDir: dataRoot,
+      network: 'agentpod-net',
+      encryptionKey,
+    })
+
+    const created = await podService.create({
+      tenantId: tenant.id,
+      name: 'Encrypted Pod',
+      adapterId: 'test',
+    })
+
+    const [stored] = await client.db
+      .select({ gatewayToken: pods.gateway_token })
+      .from(pods)
+      .where(eq(pods.id, created.id))
+      .limit(1)
+
+    assert.ok(stored)
+    assert.notEqual(stored.gatewayToken, created.gateway_token)
+    assert.equal(isEncrypted(stored.gatewayToken), true)
+
+    const fetched = await podService.getById(created.id)
+    assert.equal(fetched.gateway_token, created.gateway_token)
+
+    const listed = await podService.list(tenant.id)
+    assert.equal(listed[0]?.gateway_token, created.gateway_token)
   })
 }

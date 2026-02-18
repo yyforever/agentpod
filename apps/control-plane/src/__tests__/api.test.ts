@@ -23,6 +23,7 @@ if (!databaseUrl) {
 } else {
   const client = createDb(databaseUrl)
   const tenantService = new TenantService(client.db)
+  const originalApiKey = process.env.AGENTPOD_API_KEY
 
   let dataRoot = ''
   let podService: PodService
@@ -92,6 +93,7 @@ if (!databaseUrl) {
   }
 
   before(async () => {
+    delete process.env.AGENTPOD_API_KEY
     await runMigrations(client.db)
     dataRoot = await mkdtemp(path.join(tmpdir(), 'agentpod-control-plane-api-'))
 
@@ -118,6 +120,12 @@ if (!databaseUrl) {
   })
 
   after(async () => {
+    if (originalApiKey) {
+      process.env.AGENTPOD_API_KEY = originalApiKey
+    } else {
+      delete process.env.AGENTPOD_API_KEY
+    }
+
     if (dataRoot) {
       await rm(dataRoot, { recursive: true, force: true })
     }

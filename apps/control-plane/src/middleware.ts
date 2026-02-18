@@ -7,6 +7,13 @@ type JsonBody = {
   details?: unknown
 }
 
+const authDisabledWarning =
+  'AGENTPOD_API_KEY is not set; API authentication is disabled (development mode)'
+
+if (!process.env.AGENTPOD_API_KEY) {
+  console.warn(authDisabledWarning)
+}
+
 function toErrorResponse(c: Context, error: unknown) {
   if (isCoreError(error)) {
     const body: JsonBody = {
@@ -36,7 +43,24 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
   console.log(`${c.req.method} ${c.req.path} ${c.res.status} ${durationMs}ms`)
 }
 
-export const authPlaceholder: MiddlewareHandler = async (_c, next) => {
+export const authMiddleware: MiddlewareHandler = async (c, next) => {
+  const apiKey = process.env.AGENTPOD_API_KEY
+  if (!apiKey) {
+    await next()
+    return
+  }
+
+  const authorization = c.req.header('authorization')
+  if (authorization !== `Bearer ${apiKey}`) {
+    return c.json(
+      {
+        code: 'UNAUTHORIZED',
+        message: 'missing or invalid API key',
+      },
+      401,
+    )
+  }
+
   await next()
 }
 

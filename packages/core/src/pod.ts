@@ -7,6 +7,7 @@ import type { PlatformContext, Pod, PodDesiredStatus, PodStatus } from '@agentpo
 import type { AdapterRegistry } from './adapter.js'
 import type { DbClient } from './db/index.js'
 import { podConfigs, podEvents, pods, podStatus, tenants } from './db/schema.js'
+import { decrypt, encrypt, isEncrypted } from './crypto.js'
 import { DockerClient } from './docker.js'
 import { CoreError } from './errors.js'
 
@@ -14,6 +15,8 @@ type PodWithExtras = Pod & {
   status: PodStatus | null
   config: Record<string, unknown> | null
 }
+
+let hasWarnedPlaintextGatewayToken = false
 
 function slugify(value: string): string {
   return value
@@ -77,14 +80,23 @@ function normalizeStatus(row: typeof podStatus.$inferSelect | null): PodStatus |
 
 export class PodService {
   private readonly network: string
+  private readonly encryptionKey: string | null
 
   constructor(
     private readonly db: DbClient,
     private readonly docker: DockerClient,
     private readonly adapters: AdapterRegistry,
-    private readonly platform: PlatformContext & { network?: string },
+    private readonly platform: PlatformContext & { network?: string; encryptionKey?: string },
   ) {
     this.network = platform.network ?? process.env.AGENTPOD_NETWORK ?? 'agentpod-net'
+    this.encryptionKey = platform.encryptionKey ?? process.env.AGENTPOD_ENCRYPTION_KEY ?? null
+
+    if (!this.encryptionKey && !hasWarnedPlaintextGatewayToken) {
+      console.warn(
+        'AGENTPOD_ENCRYPTION_KEY is not set; gateway tokens will be stored as plaintext (development mode)',
+      )
+      hasWarnedPlaintextGatewayToken = true
+    }
   }
 
   private async generateSubdomain(name: string): Promise<string> {
@@ -105,6 +117,34 @@ export class PodService {
     }
 
     return `${base}-${randomUUID().slice(0, 8)}`
+  }
+
+  private serializeGatewayToken(gatewayToken: string): string {
+    if (!this.encryptionKey) {
+      return gatewayToken
+    }
+
+    return encrypt(gatewayToken, this.encryptionKey)
+  }
+
+  private deserializeGatewayToken(gatewayToken: string): string {
+    if (!isEncrypted(gatewayToken)) {
+      return gatewayToken
+    }
+
+    if (!this.encryptionKey) {
+      throw new CoreError(
+        'INTERNAL_ERROR',
+        'gateway token is encrypted but AGENTPOD_ENCRYPTION_KEY is not configured',
+        500,
+      )
+    }
+
+    try {
+      return decrypt(gatewayToken, this.encryptionKey)
+    } catch {
+      throw new CoreError('INTERNAL_ERROR', 'failed to decrypt gateway token', 500)
+    }
   }
 
   async create(input: {
@@ -153,6 +193,7 @@ export class PodService {
     const id = randomUUID()
     const subdomain = await this.generateSubdomain(input.name)
     const gatewayToken = randomBytes(32).toString('hex')
+    const storedGatewayToken = this.serializeGatewayToken(gatewayToken)
     const dataDir = path.join(this.platform.dataDir, id)
 
     const pod: Pod = {
@@ -183,7 +224,12 @@ export class PodService {
     }
 
     await this.db.transaction(async (tx) => {
-      await tx.insert(pods).values(pod)
+      await tx
+        .insert(pods)
+        .values({
+          ...pod,
+          gateway_token: storedGatewayToken,
+        })
       await tx.insert(podConfigs).values({
         pod_id: pod.id,
         config,
@@ -243,6 +289,7 @@ export class PodService {
 
     return rows.map((row) => ({
       ...toPod(row.pod),
+      gateway_token: this.deserializeGatewayToken(row.pod.gateway_token),
       status: normalizeStatus(row.status),
     }))
   }
@@ -266,6 +313,7 @@ export class PodService {
 
     return {
       ...toPod(row.pod),
+      gateway_token: this.deserializeGatewayToken(row.pod.gateway_token),
       status: normalizeStatus(row.status),
       config: row.config?.config ?? null,
     }

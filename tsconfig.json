@@ -12,6 +12,18 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true
-  }
+    "noImplicitOverride": true,
+    "baseUrl": ".",
+    "paths": {
+      "@agentpod/shared": ["packages/shared/src/index.ts"],
+      "@agentpod/core": ["packages/core/src/index.ts"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/core" },
+    { "path": "./apps/control-plane" },
+    { "path": "./apps/cli" }
+  ]
 }

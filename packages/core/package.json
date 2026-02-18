@@ -1,0 +1,36 @@
+{
+  "name": "@agentpod/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./db/migrate": {
+      "import": "./dist/db/migrate.js",
+      "types": "./dist/db/migrate.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit",
+    "test": "node --test dist/__tests__/*.test.js"
+  },
+  "dependencies": {
+    "@agentpod/shared": "workspace:*",
+    "dockerode": "^4.0.2",
+    "drizzle-orm": "^0.31.0",
+    "pg": "^8.12.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.29",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.6",
+    "typescript": "^5.5.0"
+  }
+}

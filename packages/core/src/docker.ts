@@ -9,9 +9,8 @@ function buildTraefikLabels(
   pod: Pod,
   networkName: string,
   primaryPort: number,
+  domain: string,
 ): Record<string, string> {
-  const domain = process.env.AGENTPOD_DOMAIN ?? 'localhost'
-
   return {
     'traefik.enable': 'true',
     'traefik.docker.network': networkName,
@@ -25,14 +24,14 @@ function buildTraefikLabels(
 export class DockerClient {
   private readonly docker: Docker
 
-  constructor() {
-    this.docker = new Docker()
+  constructor(docker?: Docker) {
+    this.docker = docker ?? new Docker()
   }
 
   async createContainer(
     pod: Pod,
     containerSpec: ContainerSpec,
-    networkName: string,
+    options: { networkName: string; domain: string },
   ): Promise<Docker.Container> {
     const primaryPort =
       containerSpec.ports.find((port) => port.primary)?.container ??
@@ -46,7 +45,7 @@ export class DockerClient {
       'agentpod.managed': 'true',
       'agentpod.pod-id': pod.id,
       'agentpod.adapter': pod.adapter_id,
-      ...buildTraefikLabels(pod, networkName, primaryPort),
+      ...buildTraefikLabels(pod, options.networkName, primaryPort, options.domain),
     }
 
     const env = Object.entries(containerSpec.environment).map(
@@ -61,7 +60,7 @@ export class DockerClient {
       (volume) => `${volume.source}:${volume.containerPath}`,
     )
 
-    const container = await this.docker.createContainer({
+    return this.docker.createContainer({
       Image: containerSpec.image,
       Cmd: containerSpec.command,
       Env: env,
@@ -85,12 +84,10 @@ export class DockerClient {
       },
       NetworkingConfig: {
         EndpointsConfig: {
-          [networkName]: {},
+          [options.networkName]: {},
         },
       },
     })
-
-    return container
   }
 
   async startContainer(id: string): Promise<void> {
@@ -107,6 +104,19 @@ export class DockerClient {
 
   async inspectContainer(id: string) {
     return this.docker.getContainer(id).inspect()
+  }
+
+  async getContainerLogs(
+    id: string,
+    options?: { tail?: number; stdout?: boolean; stderr?: boolean },
+  ): Promise<string> {
+    const logs = await this.docker.getContainer(id).logs({
+      stdout: options?.stdout ?? true,
+      stderr: options?.stderr ?? true,
+      tail: options?.tail ?? 100,
+    })
+
+    return Buffer.isBuffer(logs) ? logs.toString('utf8') : String(logs)
   }
 
   async getContainerByPodId(podId: string) {

@@ -1,18 +1,17 @@
 {
-  "name": "@agentpod/control-plane",
+  "name": "@agentpod/cli",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@agentpod/core": "workspace:*",
-    "@hono/node-server": "^1.12.0",
-    "hono": "^4.4.0"
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

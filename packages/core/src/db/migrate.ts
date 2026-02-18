@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm'
+import type { DbClient } from './index.js'
 import { db } from './index.js'
 
-export async function runMigrations(): Promise<void> {
-  await db.execute(sql`
+export async function runMigrations(database: DbClient = db): Promise<void> {
+  await database.execute(sql`
     CREATE TABLE IF NOT EXISTS tenants (
       id          TEXT PRIMARY KEY,
       name        TEXT NOT NULL,
@@ -12,7 +13,7 @@ export async function runMigrations(): Promise<void> {
     )
   `)
 
-  await db.execute(sql`
+  await database.execute(sql`
     CREATE TABLE IF NOT EXISTS pods (
       id              TEXT PRIMARY KEY,
       tenant_id       TEXT NOT NULL REFERENCES tenants(id),
@@ -29,7 +30,7 @@ export async function runMigrations(): Promise<void> {
     )
   `)
 
-  await db.execute(sql`
+  await database.execute(sql`
     CREATE TABLE IF NOT EXISTS pod_configs (
       pod_id      TEXT PRIMARY KEY REFERENCES pods(id),
       config      JSONB NOT NULL,
@@ -37,7 +38,7 @@ export async function runMigrations(): Promise<void> {
     )
   `)
 
-  await db.execute(sql`
+  await database.execute(sql`
     CREATE TABLE IF NOT EXISTS pod_status (
       pod_id          TEXT PRIMARY KEY REFERENCES pods(id),
       phase           TEXT NOT NULL,
@@ -51,7 +52,7 @@ export async function runMigrations(): Promise<void> {
     )
   `)
 
-  await db.execute(sql`
+  await database.execute(sql`
     CREATE TABLE IF NOT EXISTS pod_events (
       id          SERIAL PRIMARY KEY,
       pod_id      TEXT REFERENCES pods(id),
@@ -68,7 +69,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log('Migrations completed')
       process.exit(0)
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       console.error('Migration failed', error)
       process.exit(1)
     })

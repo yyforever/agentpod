@@ -18,7 +18,7 @@ export const openclawAdapter: AgentAdapter = {
   },
 
   containerSpec: {
-    image: 'openclaw:production',
+    image: process.env.AGENTPOD_OPENCLAW_IMAGE ?? 'openclaw:production',
     command: [
       'node',
       'dist/index.js',

@@ -67,9 +67,16 @@ docs/              ← 设计文档 + 开发日志
 - `AGENTPOD_DOMAIN` — 子域名根域（默认 `localhost`）
 - `AGENTPOD_OPENCLAW_IMAGE` — OpenClaw 镜像（默认 `openclaw:production`）
 
-## 测试
-- 位置：`packages/core/src/__tests__/`
-- 运行：`cd packages/core && DATABASE_URL="..." node --import tsx --test src/__tests__/*.test.ts`
+## 测试策略
+- **实现和测试在同一个 agent session 完成，不分步**
+- 任务 prompt 里直接写"实现完后写测试并运行验证"
+- 同 context 里写测试质量更高——agent 对刚写的代码记忆最清楚
+- 大改动必须带测试，小修 bug 可选
+
+### 测试位置与运行
+- Core: `packages/core/src/__tests__/` — `cd packages/core && DATABASE_URL="..." node --import tsx --test src/__tests__/*.test.ts`
+- API: `apps/control-plane/src/__tests__/` — `cd apps/control-plane && DATABASE_URL="..." node --import tsx --test src/__tests__/api.test.ts`
+- CLI: `apps/cli/src/__tests__/` — `DATABASE_URL="..." node --import tsx --test apps/cli/src/__tests__/cli.test.ts`（从 repo 根跑）
 - 测试跑真 PostgreSQL，before hook 做 TRUNCATE
 - Mock：DockerClient（不依赖真 Docker daemon）
 

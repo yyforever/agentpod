@@ -141,7 +141,27 @@
 - commit `e4fc333`, `f35f69f`
 
 ### 待办
-- [ ] 验证孤儿容器 bug 是否已修复（并发锁）
+- [x] 验证孤儿容器 bug 是否已修复（并发锁）— ✅ 3 轮调和只有 1 个容器
+
+## 2026-02-18 — Week 3-4 开始
+
+### Step 9: Dashboard (Next.js 15)
+- **工具**：CX (gpt-5.3-codex, high)，~25min，201K tokens
+- 产出：55 文件，+10998 行
+- **技术栈**：Next.js 15 App Router + shadcn/ui + Tailwind + NextAuth v5
+- **页面**：
+  - Login（`/`）— credentials auth
+  - Overview（`/dashboard`）— Pod 统计卡片
+  - Pods 列表（`/dashboard/pods`）— 状态 badge、操作菜单
+  - 创建 Pod（`/dashboard/pods/new`）— 表单 + Zod 验证
+  - Pod 详情（`/dashboard/pods/[id]`）— 状态、配置、操作按钮
+  - Tenants（`/dashboard/tenants`）— 表格 + 创建对话框
+  - Adapters、Settings（placeholder）
+- **架构**：Server Components + Server Actions + typed API client
+- Build 通过，monorepo 集成完成
+- commit `6f1097e`
+
+### 待办
 - [ ] P0-3: API 认证方案设计
 - [ ] P0-4: Secrets 加密方案设计
 - [ ] .gitignore 排除 dist/

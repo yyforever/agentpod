@@ -29,6 +29,32 @@ apps/
 docs/              ← 设计文档 + 开发日志
 ```
 
+## 工作规范
+
+### Git
+- 只 commit 自己改的文件，显式列出路径：`git add path/file1 path/file2 && git commit -m "type: message" -- path/file1 path/file2`
+- commit 前先 `git status` 确认
+- Conventional Commits（`feat|fix|refactor|build|docs|test|chore`）
+- 绝对不跑 `git reset --hard`、`git restore`、`git clean` 等破坏性操作
+- 不改 .env 文件
+
+### 验证闭环
+- 每次改动后必须运行：`pnpm build`（tsc 编译）+ 相关测试
+- 全部通过才算完成，不能跳过
+- 如果有 lint 配置，也要跑 lint
+
+### 文件规模
+- 单文件不超过 500 行，超了就拆分/重构
+- 拆分时保持接口不变，不引入 breaking change
+
+### 可用 CLI 工具
+- `pnpm` — 包管理 + monorepo
+- `node --import tsx` — 运行 TypeScript
+- `sudo docker` — 容器操作
+- `psql` — 直连 PostgreSQL（DATABASE_URL 环境变量）
+- `curl` — HTTP 调试
+- `gh` — GitHub CLI
+
 ## 核心规则
 
 ### 分层

@@ -14,6 +14,20 @@ const statusClassMap: Record<PodActualStatus, string> = {
   unknown: 'bg-zinc-600 text-zinc-50',
 }
 
+const indicatorClassMap: Record<PodActualStatus, string> = {
+  running: 'bg-emerald-300',
+  pending: 'bg-amber-300',
+  error: 'bg-red-300',
+  stopped: 'bg-zinc-300',
+  exited: 'bg-zinc-300',
+  unknown: 'bg-zinc-300',
+}
+
 export function PodStatusBadge({ status }: PodStatusBadgeProps) {
-  return <Badge className={statusClassMap[status]}>{status}</Badge>
+  return (
+    <Badge className={statusClassMap[status]}>
+      <span className={`inline-block size-2 rounded-full ${indicatorClassMap[status]}`} />
+      <span>{status}</span>
+    </Badge>
+  )
 }

@@ -1,5 +1,6 @@
 import { deletePodAction, startPodAction, stopPodAction } from '@/app/dashboard/actions'
 import { PodDetailActions } from '@/components/dashboard/pod-detail-actions'
+import { PodStatusEventsListener } from '@/components/dashboard/pod-status-events-listener'
 import { PodStatusBadge } from '@/components/dashboard/pod-status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +19,7 @@ export default async function PodDetailPage({ params }: PodDetailPageProps) {
 
   return (
     <section className="space-y-4 pb-20 md:pb-0">
+      <PodStatusEventsListener podId={pod.id} />
       <div>
         <h1 className="text-2xl font-semibold">{pod.name}</h1>
         <p className="text-sm text-zinc-400">Pod ID: {pod.id}</p>

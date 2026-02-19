@@ -373,4 +373,21 @@ if (!databaseUrl) {
     const updated = await podService.getById(pod.id)
     assert.equal(updated.desired_status, 'deleted')
   })
+
+  test('GET /pods/events returns text/event-stream payload', async () => {
+    const response = await app.request('/api/pods/events')
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('content-type'), 'text/event-stream')
+
+    const reader = response.body?.getReader()
+    assert.ok(reader)
+
+    const firstChunk = await reader.read()
+    assert.equal(firstChunk.done, false)
+
+    const text = new TextDecoder().decode(firstChunk.value)
+    assert.match(text, /event: connected/)
+
+    await reader.cancel()
+  })
 }

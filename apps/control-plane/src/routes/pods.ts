@@ -38,6 +38,93 @@ export function createPodRoutes(podService: PodService): Hono {
     return c.json(rows)
   })
 
+  app.get('/pods/events', async (c) => {
+    const encoder = new TextEncoder()
+    let lastSeenAt = new Date()
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let isClosed = false
+        let isPolling = false
+
+        const write = (chunk: string): void => {
+          if (isClosed) {
+            return
+          }
+          controller.enqueue(encoder.encode(chunk))
+        }
+
+        const writeEvent = (event: string, data: unknown): void => {
+          write(`event: ${event}\n`)
+          write(`data: ${JSON.stringify(data)}\n\n`)
+        }
+
+        const poll = async (): Promise<void> => {
+          if (isClosed || isPolling) {
+            return
+          }
+          isPolling = true
+          try {
+            const changes = await podService.listStatusChangesSince(lastSeenAt)
+            if (changes.length === 0) {
+              write(': keepalive\n\n')
+              return
+            }
+
+            for (const change of changes) {
+              writeEvent('pod.status', {
+                pod_id: change.pod_id,
+                actual_status: change.actual_status,
+                desired_status: change.desired_status,
+                phase: change.phase,
+                message: change.message,
+                updated_at: change.updated_at.toISOString(),
+              })
+              if (change.updated_at > lastSeenAt) {
+                lastSeenAt = change.updated_at
+              }
+            }
+          } catch (error) {
+            writeEvent('stream.error', {
+              message: error instanceof Error ? error.message : 'failed to load status updates',
+            })
+          } finally {
+            isPolling = false
+          }
+        }
+
+        writeEvent('connected', { at: new Date().toISOString() })
+        void poll()
+
+        const interval = setInterval(() => {
+          void poll()
+        }, 2_000)
+
+        c.req.raw.signal.addEventListener(
+          'abort',
+          () => {
+            if (isClosed) {
+              return
+            }
+            isClosed = true
+            clearInterval(interval)
+            controller.close()
+          },
+          { once: true },
+        )
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      },
+    })
+  })
+
   app.get('/pods/:id', async (c) => {
     const row = await podService.getById(c.req.param('id'))
     return c.json(row)

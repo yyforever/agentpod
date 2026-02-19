@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { eq } from 'drizzle-orm'
+import { asc, eq, gt } from 'drizzle-orm'
 import { ZodError } from 'zod'
 import type { PlatformContext, Pod, PodDesiredStatus, PodStatus } from '@agentpod/shared'
 import type { AdapterRegistry } from './adapter.js'
@@ -317,6 +317,41 @@ export class PodService {
       status: normalizeStatus(row.status),
       config: row.config?.config ?? null,
     }
+  }
+
+  async listStatusChangesSince(since: Date): Promise<
+    Array<{
+      pod_id: string
+      actual_status: Pod['actual_status']
+      desired_status: PodDesiredStatus
+      phase: string
+      message: string | null
+      updated_at: Date
+    }>
+  > {
+    const rows = await this.db
+      .select({
+        podId: pods.id,
+        actualStatus: pods.actual_status,
+        desiredStatus: pods.desired_status,
+        phase: podStatus.phase,
+        message: podStatus.message,
+        updatedAt: podStatus.updated_at,
+      })
+      .from(podStatus)
+      .innerJoin(pods, eq(pods.id, podStatus.pod_id))
+      .where(gt(podStatus.updated_at, since))
+      .orderBy(asc(podStatus.updated_at))
+
+    const now = new Date()
+    return rows.map((row) => ({
+      pod_id: row.podId,
+      actual_status: row.actualStatus as Pod['actual_status'],
+      desired_status: row.desiredStatus as PodDesiredStatus,
+      phase: row.phase,
+      message: row.message ?? null,
+      updated_at: row.updatedAt ?? now,
+    }))
   }
 
   async start(id: string): Promise<void> {

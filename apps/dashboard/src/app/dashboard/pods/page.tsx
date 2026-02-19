@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { deletePodAction, startPodAction, stopPodAction } from '@/app/dashboard/actions'
 import { PodActionsMenu } from '@/components/dashboard/pod-actions-menu'
+import { PodStatusEventsListener } from '@/components/dashboard/pod-status-events-listener'
 import { PodStatusBadge } from '@/components/dashboard/pod-status-badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +24,7 @@ export default async function PodListPage() {
 
   return (
     <section className="space-y-4 pb-20 md:pb-0">
+      <PodStatusEventsListener />
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Pods</h1>
         <Button asChild>

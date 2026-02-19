@@ -43,6 +43,13 @@ if (!databaseUrl) {
     assert.equal(listed.length, 1)
     assert.equal(listed[0]?.id, created.id)
 
+    const updated = await tenantService.update(created.id, {
+      name: 'Acme Updated',
+      email: 'updated@acme.test',
+    })
+    assert.equal(updated.name, 'Acme Updated')
+    assert.equal(updated.email, 'updated@acme.test')
+
     await tenantService.delete(created.id)
 
     const afterDelete = await tenantService.list()

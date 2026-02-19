@@ -49,6 +49,29 @@ export class TenantService {
     return normalizeTenant(tenant)
   }
 
+  async update(id: string, input: { name: string; email?: string }): Promise<Tenant> {
+    const name = input.name?.trim()
+    if (!name) {
+      throw new CoreError('VALIDATION_ERROR', 'name is required', 400)
+    }
+
+    const [updated] = await this.db
+      .update(tenants)
+      .set({
+        name,
+        email: input.email?.trim() || null,
+        updated_at: new Date(),
+      })
+      .where(eq(tenants.id, id))
+      .returning()
+
+    if (!updated) {
+      throw new CoreError('NOT_FOUND', 'tenant not found', 404)
+    }
+
+    return normalizeTenant(updated)
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.transaction(async (tx) => {
       const lockedTenant = await tx.execute(

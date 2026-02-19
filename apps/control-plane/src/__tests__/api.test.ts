@@ -199,6 +199,49 @@ if (!databaseUrl) {
     assert.equal(body.code, 'NOT_FOUND')
   })
 
+  test('PUT /tenants/:id updates tenant and returns row', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Before', email: 'before@test.dev' })
+
+    const response = await app.request(`/api/tenants/${tenant.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Tenant After',
+        email: 'after@test.dev',
+      }),
+    })
+
+    assert.equal(response.status, 200)
+    const body = (await response.json()) as { id: string; name: string; email: string | null }
+    assert.equal(body.id, tenant.id)
+    assert.equal(body.name, 'Tenant After')
+    assert.equal(body.email, 'after@test.dev')
+  })
+
+  test('DELETE /tenants/:id deletes tenant without pods', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Delete' })
+    const response = await app.request(`/api/tenants/${tenant.id}`, { method: 'DELETE' })
+
+    assert.equal(response.status, 200)
+    const body = (await response.json()) as { id: string; deleted: boolean }
+    assert.equal(body.id, tenant.id)
+    assert.equal(body.deleted, true)
+  })
+
+  test('DELETE /tenants/:id returns 409 when tenant has pods', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Conflict' })
+    await podService.create({
+      tenantId: tenant.id,
+      name: 'Tenant Conflict Pod',
+      adapterId: 'test',
+    })
+
+    const response = await app.request(`/api/tenants/${tenant.id}`, { method: 'DELETE' })
+    assert.equal(response.status, 409)
+    const body = (await response.json()) as { code?: string }
+    assert.equal(body.code, 'CONFLICT')
+  })
+
   test('GET /adapters returns registered adapters', async () => {
     const response = await app.request('/api/adapters')
     assert.equal(response.status, 200)

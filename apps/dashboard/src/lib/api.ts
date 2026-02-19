@@ -19,6 +19,19 @@ type ApiFetchOptions = RequestInit & {
 type ErrorPayload = {
   error?: string
   message?: string
+  code?: string
+}
+
+export class ApiRequestError extends Error {
+  readonly status: number
+  readonly code?: string
+
+  constructor(message: string, status: number, code?: string) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status
+    this.code = code
+  }
 }
 
 const statusSchema = z.object({
@@ -146,13 +159,15 @@ async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise<T> {
 
   if (!response.ok) {
     let message = `Control-plane request failed (${response.status})`
+    let code: string | undefined
     try {
       const errorPayload = (await response.json()) as ErrorPayload
       message = errorPayload.error ?? errorPayload.message ?? message
+      code = errorPayload.code
     } catch {
       // keep fallback message
     }
-    throw new Error(message)
+    throw new ApiRequestError(message, response.status, code)
   }
 
   return (await response.json()) as T
@@ -176,6 +191,27 @@ export async function createTenant(input: { name: string; email?: string }): Pro
     }),
   })
   return mapTenant(tenantSchema.parse(raw))
+}
+
+export async function updateTenant(
+  id: string,
+  input: { name: string; email?: string },
+): Promise<Tenant> {
+  const raw = await apiFetch<unknown>(`/api/tenants/${id}`, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: input.name,
+      email: input.email,
+    }),
+  })
+  return mapTenant(tenantSchema.parse(raw))
+}
+
+export async function deleteTenant(id: string): Promise<void> {
+  await apiFetch(`/api/tenants/${id}`, { method: 'DELETE' })
 }
 
 export async function getPods(tenantId?: string): Promise<PodWithStatus[]> {

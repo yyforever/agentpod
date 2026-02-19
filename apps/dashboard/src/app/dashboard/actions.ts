@@ -4,7 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { auth } from '@/auth'
-import { createPod, createTenant, deletePod, startPod, stopPod } from '@/lib/api'
+import {
+  ApiRequestError,
+  createPod,
+  createTenant,
+  deletePod,
+  deleteTenant,
+  startPod,
+  stopPod,
+  updateTenant,
+} from '@/lib/api'
 
 const createTenantSchema = z.object({
   name: z.string().trim().min(1),
@@ -47,6 +56,43 @@ export async function createTenantAction(formData: FormData): Promise<void> {
     name: parsed.data.name,
     email: parsed.data.email,
   })
+
+  revalidatePath('/dashboard/tenants')
+  redirect('/dashboard/tenants')
+}
+
+export async function updateTenantAction(id: string, formData: FormData): Promise<void> {
+  await requireSession()
+
+  const parsed = createTenantSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email'),
+  })
+
+  if (!parsed.success) {
+    redirect('/dashboard/tenants?error=invalid_tenant_input')
+  }
+
+  await updateTenant(id, {
+    name: parsed.data.name,
+    email: parsed.data.email,
+  })
+
+  revalidatePath('/dashboard/tenants')
+  redirect('/dashboard/tenants')
+}
+
+export async function deleteTenantAction(id: string): Promise<void> {
+  await requireSession()
+
+  try {
+    await deleteTenant(id)
+  } catch (error) {
+    if (error instanceof ApiRequestError && (error.code === 'CONFLICT' || error.status === 409)) {
+      redirect('/dashboard/tenants?error=tenant_has_pods')
+    }
+    throw error
+  }
 
   revalidatePath('/dashboard/tenants')
   redirect('/dashboard/tenants')

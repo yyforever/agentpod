@@ -37,5 +37,27 @@ export function createTenantRoutes(tenantService: TenantService): Hono {
     return c.json(tenant)
   })
 
+  app.put('/tenants/:id', async (c) => {
+    const json = await c.req.json().catch(() => {
+      throw new CoreError('VALIDATION_ERROR', 'invalid JSON body', 400)
+    })
+    const body = createTenantBodySchema.safeParse(json)
+    if (!body.success) {
+      throw new CoreError('VALIDATION_ERROR', 'invalid request body', 400, body.error.issues)
+    }
+
+    const tenant = await tenantService.update(c.req.param('id'), {
+      name: body.data.name,
+      email: body.data.email,
+    })
+    return c.json(tenant)
+  })
+
+  app.delete('/tenants/:id', async (c) => {
+    const id = c.req.param('id')
+    await tenantService.delete(id)
+    return c.json({ id, deleted: true })
+  })
+
   return app
 }

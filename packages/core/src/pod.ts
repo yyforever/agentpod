@@ -1,9 +1,15 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { asc, eq, gt } from 'drizzle-orm'
+import { asc, desc, eq, gt } from 'drizzle-orm'
 import { ZodError } from 'zod'
-import type { PlatformContext, Pod, PodDesiredStatus, PodStatus } from '@agentpod/shared'
+import type {
+  PlatformContext,
+  Pod,
+  PodDesiredStatus,
+  PodEvent,
+  PodStatus,
+} from '@agentpod/shared'
 import type { AdapterRegistry } from './adapter.js'
 import type { DbClient } from './db/index.js'
 import { podConfigs, podEvents, pods, podStatus, tenants } from './db/schema.js'
@@ -75,6 +81,17 @@ function normalizeStatus(row: typeof podStatus.$inferSelect | null): PodStatus |
     cpu_percent: row.cpu_percent ?? null,
     storage_mb: row.storage_mb ?? null,
     updated_at: row.updated_at ?? now,
+  }
+}
+
+function normalizePodEvent(row: typeof podEvents.$inferSelect): PodEvent {
+  const now = new Date()
+  return {
+    id: row.id,
+    pod_id: row.pod_id,
+    event_type: row.event_type as PodEvent['event_type'],
+    message: row.message ?? null,
+    created_at: row.created_at ?? now,
   }
 }
 
@@ -352,6 +369,26 @@ export class PodService {
       message: row.message ?? null,
       updated_at: row.updatedAt ?? now,
     }))
+  }
+
+  async listEvents(id: string): Promise<PodEvent[]> {
+    const [existing] = await this.db
+      .select({ id: pods.id })
+      .from(pods)
+      .where(eq(pods.id, id))
+      .limit(1)
+
+    if (!existing) {
+      throw new CoreError('NOT_FOUND', 'pod not found', 404)
+    }
+
+    const rows = await this.db
+      .select()
+      .from(podEvents)
+      .where(eq(podEvents.pod_id, id))
+      .orderBy(desc(podEvents.created_at), desc(podEvents.id))
+
+    return rows.map(normalizePodEvent)
   }
 
   async start(id: string): Promise<void> {

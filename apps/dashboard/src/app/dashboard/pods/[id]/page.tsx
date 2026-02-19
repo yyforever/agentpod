@@ -3,10 +3,9 @@ import { PodDetailActions } from '@/components/dashboard/pod-detail-actions'
 import { PodLogsViewer } from '@/components/dashboard/pod-logs-viewer'
 import { PodStatusEventsListener } from '@/components/dashboard/pod-status-events-listener'
 import { PodStatusBadge } from '@/components/dashboard/pod-status-badge'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/format'
-import { getPod } from '@/lib/api'
+import { getPod, getPodEvents } from '@/lib/api'
 
 type PodDetailPageProps = {
   params: Promise<{ id: string }>
@@ -14,7 +13,7 @@ type PodDetailPageProps = {
 
 export default async function PodDetailPage({ params }: PodDetailPageProps) {
   const { id } = await params
-  const pod = await getPod(id)
+  const [pod, events] = await Promise.all([getPod(id), getPodEvents(id)])
   const canStart = pod.actual_status !== 'running'
   const canStop = pod.actual_status === 'running'
 
@@ -71,12 +70,29 @@ export default async function PodDetailPage({ params }: PodDetailPageProps) {
         </CardContent>
       </Card>
 
-      <Alert>
-        <AlertTitle>Events</AlertTitle>
-        <AlertDescription>
-          Event timeline placeholder. This will be wired to `pod_events` in a follow-up.
-        </AlertDescription>
-      </Alert>
+      <Card className="border-zinc-800 bg-zinc-900/70">
+        <CardHeader>
+          <CardTitle>Events</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <p className="text-sm text-zinc-400">No events yet.</p>
+          ) : (
+            <ol className="space-y-4 border-l border-zinc-700 pl-4">
+              {events.map((event) => (
+                <li key={event.id} className="relative">
+                  <span className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-zinc-400" />
+                  <p className="text-sm font-medium text-zinc-100">{event.event_type}</p>
+                  <p className="text-xs text-zinc-400">{formatDate(event.created_at)}</p>
+                  {event.message ? (
+                    <p className="mt-1 text-sm text-zinc-300">{event.message}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
     </section>
   )
 }

@@ -159,6 +159,11 @@ export function createPodRoutes(podService: PodService): Hono {
     })
   })
 
+  app.get('/pods/:id/events', async (c) => {
+    const rows = await podService.listEvents(c.req.param('id'))
+    return c.json(rows)
+  })
+
   app.get('/pods/:id', async (c) => {
     const row = await podService.getById(c.req.param('id'))
     return c.json(row)

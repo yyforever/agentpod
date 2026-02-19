@@ -447,4 +447,29 @@ if (!databaseUrl) {
     assert.equal(body.container_id, 'container-test')
     assert.equal(body.logs, 'line-1\nline-2')
   })
+
+  test('GET /pods/:id/events returns pod event timeline', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Pod Events' })
+    const pod = await podService.create({
+      tenantId: tenant.id,
+      name: 'Pod Events',
+      adapterId: 'test',
+    })
+    await podService.stop(pod.id)
+
+    const response = await app.request(`/api/pods/${pod.id}/events`)
+    assert.equal(response.status, 200)
+
+    const events = (await response.json()) as Array<{
+      pod_id: string
+      event_type: string
+      message: string | null
+      created_at: string
+    }>
+
+    assert.ok(events.length >= 2)
+    assert.equal(events[0]?.pod_id, pod.id)
+    assert.equal(events[0]?.event_type, 'stopped')
+    assert.equal(events[1]?.event_type, 'created')
+  })
 }

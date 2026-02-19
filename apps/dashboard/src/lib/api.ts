@@ -1,7 +1,14 @@
 import 'server-only'
 
 import { z } from 'zod'
-import type { Pod, PodActualStatus, PodDesiredStatus, PodStatus, Tenant } from '@agentpod/shared'
+import type {
+  Pod,
+  PodActualStatus,
+  PodDesiredStatus,
+  PodEvent,
+  PodStatus,
+  Tenant,
+} from '@agentpod/shared'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -58,11 +65,21 @@ const podDetailSchema = podSchema.extend({
   config: z.record(z.unknown()).nullable(),
 })
 
+const podEventSchema = z.object({
+  id: z.number(),
+  pod_id: z.string(),
+  event_type: z.string(),
+  message: z.string().nullable(),
+  created_at: z.string(),
+})
+
 export type PodWithStatus = Pod & { status: PodStatus | null }
 
 export type PodDetails = PodWithStatus & {
   config: Record<string, unknown> | null
 }
+
+export type PodTimelineEvent = PodEvent
 
 function toDate(value: string): Date {
   const parsed = new Date(value)
@@ -220,4 +237,16 @@ export async function stopPod(id: string): Promise<void> {
 
 export async function deletePod(id: string): Promise<void> {
   await apiFetch(`/api/pods/${id}`, { method: 'DELETE' })
+}
+
+export async function getPodEvents(id: string): Promise<PodTimelineEvent[]> {
+  const raw = await apiFetch<unknown>(`/api/pods/${id}/events`)
+  const parsed = z.array(podEventSchema).parse(raw)
+  return parsed.map((event) => ({
+    id: event.id,
+    pod_id: event.pod_id,
+    event_type: event.event_type as PodEvent['event_type'],
+    message: event.message,
+    created_at: toDate(event.created_at),
+  }))
 }

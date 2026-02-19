@@ -81,8 +81,12 @@ if (!databaseUrl) {
       return { State: { Status: 'exited', Running: false } }
     }
 
-    async getContainerByPodId(): Promise<null> {
-      return null
+    async getContainerByPodId(): Promise<{ Id: string }> {
+      return { Id: 'container-test' }
+    }
+
+    async getContainerLogs(_id: string): Promise<string> {
+      return 'line-1\nline-2'
     }
   }
 
@@ -389,5 +393,26 @@ if (!databaseUrl) {
     assert.match(text, /event: connected/)
 
     await reader.cancel()
+  })
+
+  test('GET /pods/:id/logs returns logs content', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Pod Logs' })
+    const pod = await podService.create({
+      tenantId: tenant.id,
+      name: 'Pod Logs',
+      adapterId: 'test',
+    })
+
+    const response = await app.request(`/api/pods/${pod.id}/logs`)
+    assert.equal(response.status, 200)
+
+    const body = (await response.json()) as {
+      pod_id: string
+      container_id: string
+      logs: string
+    }
+    assert.equal(body.pod_id, pod.id)
+    assert.equal(body.container_id, 'container-test')
+    assert.equal(body.logs, 'line-1\nline-2')
   })
 }

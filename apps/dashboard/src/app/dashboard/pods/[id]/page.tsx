@@ -1,5 +1,6 @@
 import { deletePodAction, startPodAction, stopPodAction } from '@/app/dashboard/actions'
 import { PodDetailActions } from '@/components/dashboard/pod-detail-actions'
+import { PodLogsViewer } from '@/components/dashboard/pod-logs-viewer'
 import { PodStatusEventsListener } from '@/components/dashboard/pod-status-events-listener'
 import { PodStatusBadge } from '@/components/dashboard/pod-status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -58,6 +59,15 @@ export default async function PodDetailPage({ params }: PodDetailPageProps) {
           <pre className="overflow-x-auto rounded-md border border-zinc-800 bg-zinc-950 p-4 text-xs text-zinc-200">
             {JSON.stringify(pod.config ?? {}, null, 2)}
           </pre>
+        </CardContent>
+      </Card>
+
+      <Card className="border-zinc-800 bg-zinc-900/70">
+        <CardHeader>
+          <CardTitle>Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PodLogsViewer podId={pod.id} />
         </CardContent>
       </Card>
 

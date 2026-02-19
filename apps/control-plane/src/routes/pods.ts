@@ -125,6 +125,40 @@ export function createPodRoutes(podService: PodService): Hono {
     })
   })
 
+  app.get('/pods/:id/logs', async (c) => {
+    const id = c.req.param('id')
+    const tailQuery = c.req.query('tail')
+    const tail = tailQuery ? Number.parseInt(tailQuery, 10) : 200
+
+    if (!Number.isFinite(tail) || tail < 1) {
+      throw new CoreError('VALIDATION_ERROR', 'tail must be a positive integer', 400)
+    }
+
+    const stdout = c.req.query('stdout') !== 'false'
+    const stderr = c.req.query('stderr') !== 'false'
+
+    const pod = await podService.getById(id)
+    const docker = podService.getDockerClient()
+    const discoveredContainer = await docker.getContainerByPodId(id)
+    const containerId = pod.container_id ?? discoveredContainer?.Id ?? null
+
+    if (!containerId) {
+      throw new CoreError('CONFLICT', 'pod container is not available', 409)
+    }
+
+    const logs = await docker.getContainerLogs(containerId, {
+      tail,
+      stdout,
+      stderr,
+    })
+
+    return c.json({
+      pod_id: id,
+      container_id: containerId,
+      logs,
+    })
+  })
+
   app.get('/pods/:id', async (c) => {
     const row = await podService.getById(c.req.param('id'))
     return c.json(row)

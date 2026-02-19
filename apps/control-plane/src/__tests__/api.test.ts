@@ -28,6 +28,7 @@ if (!databaseUrl) {
   let dataRoot = ''
   let podService: PodService
   let app: Hono
+  let mockDocker: MockDockerClient
 
   const testAdapter: AgentAdapter = {
     meta: {
@@ -67,6 +68,8 @@ if (!databaseUrl) {
   }
 
   class MockDockerClient {
+    lastLogOptions: { tail?: number; stdout?: boolean; stderr?: boolean } | null = null
+
     async createContainer(_pod: Pod): Promise<{ id: string }> {
       return { id: 'container-test' }
     }
@@ -85,7 +88,11 @@ if (!databaseUrl) {
       return { Id: 'container-test' }
     }
 
-    async getContainerLogs(_id: string): Promise<string> {
+    async getContainerLogs(
+      _id: string,
+      options?: { tail?: number; stdout?: boolean; stderr?: boolean },
+    ): Promise<string> {
+      this.lastLogOptions = options ?? null
       return 'line-1\nline-2'
     }
   }
@@ -104,10 +111,10 @@ if (!databaseUrl) {
     const adapters = new AdapterRegistry()
     adapters.register(testAdapter)
 
-    const docker = new MockDockerClient()
+    mockDocker = new MockDockerClient()
     podService = new PodService(
       client.db,
-      docker as unknown as DockerClient,
+      mockDocker as unknown as DockerClient,
       adapters,
       {
         domain: 'localhost',
@@ -489,6 +496,22 @@ if (!databaseUrl) {
     assert.equal(body.pod_id, pod.id)
     assert.equal(body.container_id, 'container-test')
     assert.equal(body.logs, 'line-1\nline-2')
+    assert.equal(mockDocker.lastLogOptions?.tail, 200)
+    assert.equal(mockDocker.lastLogOptions?.stdout, true)
+    assert.equal(mockDocker.lastLogOptions?.stderr, true)
+  })
+
+  test('GET /pods/:id/logs caps tail query at 10000', async () => {
+    const tenant = await tenantService.create({ name: 'Tenant Pod Logs Tail Cap' })
+    const pod = await podService.create({
+      tenantId: tenant.id,
+      name: 'Pod Logs Tail Cap',
+      adapterId: 'test',
+    })
+
+    const response = await app.request(`/api/pods/${pod.id}/logs?tail=20000`)
+    assert.equal(response.status, 200)
+    assert.equal(mockDocker.lastLogOptions?.tail, 10_000)
   })
 
   test('GET /pods/:id/events returns pod event timeline', async () => {

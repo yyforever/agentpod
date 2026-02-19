@@ -128,11 +128,13 @@ export function createPodRoutes(podService: PodService): Hono {
   app.get('/pods/:id/logs', async (c) => {
     const id = c.req.param('id')
     const tailQuery = c.req.query('tail')
-    const tail = tailQuery ? Number.parseInt(tailQuery, 10) : 200
+    const parsedTail = tailQuery ? Number.parseInt(tailQuery, 10) : 200
 
-    if (!Number.isFinite(tail) || tail < 1) {
+    if (!Number.isFinite(parsedTail) || parsedTail < 1) {
       throw new CoreError('VALIDATION_ERROR', 'tail must be a positive integer', 400)
     }
+
+    const tail = Math.min(parsedTail, 10_000)
 
     const stdout = c.req.query('stdout') !== 'false'
     const stderr = c.req.query('stderr') !== 'false'

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { auth } from '@/auth'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -6,6 +7,11 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest): Promise<Response> {
+  const session = await auth()
+  if (!session?.user) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const url = new URL('/api/pods/events', controlPlaneBaseUrl)
   request.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.set(key, value)

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { auth } from '@/auth'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -10,6 +11,11 @@ type RouteParams = {
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams): Promise<Response> {
+  const session = await auth()
+  if (!session?.user) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const { id } = await params
   const url = new URL(`/api/adapters/${id}/config-schema`, controlPlaneBaseUrl)
 

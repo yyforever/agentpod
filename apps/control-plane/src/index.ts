@@ -12,6 +12,7 @@ import {
   runMigrations,
 } from '@agentpod/core'
 import { authMiddleware, errorHandler, requestLogger } from './middleware.js'
+import { createAdapterRoutes } from './routes/adapters.js'
 import { createPodRoutes } from './routes/pods.js'
 import { createTenantRoutes } from './routes/tenants.js'
 
@@ -33,6 +34,7 @@ export function createApp(services: AppServices): Hono {
 
   app.route('/api', createTenantRoutes(services.tenantService))
   app.route('/api', createPodRoutes(services.podService))
+  app.route('/api', createAdapterRoutes(services.podService))
 
   return app
 }

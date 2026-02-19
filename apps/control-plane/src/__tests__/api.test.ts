@@ -199,6 +199,38 @@ if (!databaseUrl) {
     assert.equal(body.code, 'NOT_FOUND')
   })
 
+  test('GET /adapters returns registered adapters', async () => {
+    const response = await app.request('/api/adapters')
+    assert.equal(response.status, 200)
+
+    const body = (await response.json()) as Array<{ id: string; label: string }>
+    assert.equal(body.length, 1)
+    assert.equal(body[0]?.id, 'test')
+    assert.equal(body[0]?.label, 'Test Adapter')
+  })
+
+  test('GET /adapters/:id/config-schema returns dynamic schema', async () => {
+    const response = await app.request('/api/adapters/test/config-schema')
+    assert.equal(response.status, 200)
+
+    const body = (await response.json()) as {
+      adapter_id: string
+      schema: {
+        type: string
+        properties: Record<string, { type: string; default?: unknown }>
+        required: string[]
+      }
+      defaults: Record<string, unknown>
+    }
+
+    assert.equal(body.adapter_id, 'test')
+    assert.equal(body.schema.type, 'object')
+    assert.equal(body.schema.properties.greeting?.type, 'string')
+    assert.equal(body.schema.properties.greeting?.default, 'hello')
+    assert.equal(body.defaults.greeting, 'hello')
+    assert.deepEqual(body.schema.required, [])
+  })
+
   test('POST /pods creates pod and returns 201', async () => {
     const tenant = await tenantService.create({ name: 'Tenant Pod Create' })
 

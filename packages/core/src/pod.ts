@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { asc, desc, eq, gt } from 'drizzle-orm'
+import { asc, desc, eq, gte } from 'drizzle-orm'
 import { ZodError, z } from 'zod'
 import type {
   PlatformContext,
@@ -372,8 +372,8 @@ export class PodService {
       })
       .from(podStatus)
       .innerJoin(pods, eq(pods.id, podStatus.pod_id))
-      .where(gt(podStatus.updated_at, since))
-      .orderBy(asc(podStatus.updated_at))
+      .where(gte(podStatus.updated_at, since))
+      .orderBy(asc(podStatus.updated_at), asc(pods.id))
 
     const now = new Date()
     return rows.map((row) => ({

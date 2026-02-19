@@ -477,6 +477,55 @@ if (!databaseUrl) {
     await reader.cancel()
   })
 
+  test('GET /pods/events deduplicates matching timestamp updates across polls', async () => {
+    const repeatedUpdateAt = new Date('2025-01-01T00:00:00.000Z')
+    const originalListStatusChangesSince = podService.listStatusChangesSince.bind(podService)
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+
+    podService.listStatusChangesSince = async (_since: Date) => {
+      return [
+        {
+          pod_id: 'dedupe-pod',
+          actual_status: 'running',
+          desired_status: 'running',
+          phase: 'running',
+          message: null,
+          updated_at: repeatedUpdateAt,
+        },
+      ]
+    }
+
+    const response = await app.request('/api/pods/events')
+    assert.equal(response.status, 200)
+
+    reader = response.body?.getReader()
+    assert.ok(reader)
+
+    try {
+      const decoder = new TextDecoder()
+      let firstPollText = ''
+      while (!firstPollText.includes('event: pod.status')) {
+        const chunk = await reader.read()
+        if (chunk.done) {
+          break
+        }
+        firstPollText += decoder.decode(chunk.value)
+      }
+      assert.match(firstPollText, /event: pod.status/)
+
+      await new Promise((resolve) => setTimeout(resolve, 2_200))
+
+      const secondPollChunk = await reader.read()
+      assert.equal(secondPollChunk.done, false)
+      const secondPollText = decoder.decode(secondPollChunk.value)
+      assert.doesNotMatch(secondPollText, /event: pod.status/)
+      assert.match(secondPollText, /: keepalive/)
+    } finally {
+      await reader.cancel()
+      podService.listStatusChangesSince = originalListStatusChangesSince
+    }
+  })
+
   test('GET /pods/:id/logs returns logs content', async () => {
     const tenant = await tenantService.create({ name: 'Tenant Pod Logs' })
     const pod = await podService.create({

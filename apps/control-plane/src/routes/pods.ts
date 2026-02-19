@@ -41,6 +41,7 @@ export function createPodRoutes(podService: PodService): Hono {
   app.get('/pods/events', async (c) => {
     const encoder = new TextEncoder()
     let lastSeenAt = new Date()
+    const seenEventKeysAtLastTimestamp = new Set<string>()
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -71,7 +72,23 @@ export function createPodRoutes(podService: PodService): Hono {
               return
             }
 
+            let wroteStatusEvent = false
             for (const change of changes) {
+              const changeUpdatedAt = change.updated_at.getTime()
+              const lastSeenAtMs = lastSeenAt.getTime()
+              const eventKey = `${change.pod_id}:${change.updated_at.toISOString()}`
+
+              if (changeUpdatedAt < lastSeenAtMs) {
+                continue
+              }
+
+              if (
+                changeUpdatedAt === lastSeenAtMs &&
+                seenEventKeysAtLastTimestamp.has(eventKey)
+              ) {
+                continue
+              }
+
               writeEvent('pod.status', {
                 pod_id: change.pod_id,
                 actual_status: change.actual_status,
@@ -80,9 +97,17 @@ export function createPodRoutes(podService: PodService): Hono {
                 message: change.message,
                 updated_at: change.updated_at.toISOString(),
               })
-              if (change.updated_at > lastSeenAt) {
+              wroteStatusEvent = true
+
+              if (changeUpdatedAt > lastSeenAtMs) {
                 lastSeenAt = change.updated_at
+                seenEventKeysAtLastTimestamp.clear()
               }
+              seenEventKeysAtLastTimestamp.add(eventKey)
+            }
+
+            if (!wroteStatusEvent) {
+              write(': keepalive\n\n')
             }
           } catch (error) {
             writeEvent('stream.error', {

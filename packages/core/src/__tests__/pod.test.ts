@@ -16,7 +16,7 @@ import {
   isEncrypted,
   runMigrations,
 } from '../index.js'
-import { pods } from '../db/schema.js'
+import { pods, podStatus } from '../db/schema.js'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -164,5 +164,36 @@ if (!databaseUrl) {
 
     const listed = await podService.list(tenant.id)
     assert.equal(listed[0]?.gateway_token, created.gateway_token)
+  })
+
+  test('PodService listStatusChangesSince includes rows with matching timestamp', async () => {
+    const tenantService = new TenantService(client.db)
+    const tenant = await tenantService.create({ name: 'Tenant Status Boundary' })
+
+    const adapters = new AdapterRegistry()
+    adapters.register(testAdapter)
+
+    const podService = new PodService(client.db, new DockerClient(), adapters, {
+      domain: 'localhost',
+      dataDir: dataRoot,
+      network: 'agentpod-net',
+    })
+
+    const pod = await podService.create({
+      tenantId: tenant.id,
+      name: 'Status Boundary Pod',
+      adapterId: 'test',
+    })
+
+    const boundary = new Date('2100-01-01T00:00:00.000Z')
+    await client.db
+      .update(podStatus)
+      .set({ updated_at: boundary })
+      .where(eq(podStatus.pod_id, pod.id))
+
+    const changes = await podService.listStatusChangesSince(boundary)
+    assert.equal(changes.length, 1)
+    assert.equal(changes[0]?.pod_id, pod.id)
+    assert.equal(changes[0]?.updated_at.toISOString(), boundary.toISOString())
   })
 }

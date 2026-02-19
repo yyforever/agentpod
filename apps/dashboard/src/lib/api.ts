@@ -78,10 +78,21 @@ const podDetailSchema = podSchema.extend({
   config: z.record(z.unknown()).nullable(),
 })
 
+const podEventTypeSchema = z.enum([
+  'created',
+  'started',
+  'stopped',
+  'restarted',
+  'deleted',
+  'error',
+  'health_check_failed',
+  'config_changed',
+])
+
 const podEventSchema = z.object({
   id: z.number(),
   pod_id: z.string(),
-  event_type: z.string(),
+  event_type: podEventTypeSchema,
   message: z.string().nullable(),
   created_at: z.string(),
 })
@@ -281,7 +292,7 @@ export async function getPodEvents(id: string): Promise<PodTimelineEvent[]> {
   return parsed.map((event) => ({
     id: event.id,
     pod_id: event.pod_id,
-    event_type: event.event_type as PodEvent['event_type'],
+    event_type: event.event_type,
     message: event.message,
     created_at: toDate(event.created_at),
   }))

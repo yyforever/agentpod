@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { asc, desc, eq, gt } from 'drizzle-orm'
-import { ZodError } from 'zod'
+import { ZodError, z } from 'zod'
 import type {
   PlatformContext,
   Pod,
@@ -23,6 +23,16 @@ type PodWithExtras = Pod & {
 }
 
 let hasWarnedPlaintextGatewayToken = false
+const podEventTypeSchema = z.enum([
+  'created',
+  'started',
+  'stopped',
+  'restarted',
+  'deleted',
+  'error',
+  'health_check_failed',
+  'config_changed',
+])
 
 function slugify(value: string): string {
   return value
@@ -86,10 +96,15 @@ function normalizeStatus(row: typeof podStatus.$inferSelect | null): PodStatus |
 
 function normalizePodEvent(row: typeof podEvents.$inferSelect): PodEvent {
   const now = new Date()
+  const eventType = podEventTypeSchema.safeParse(row.event_type)
+  if (!eventType.success) {
+    throw new CoreError('INTERNAL_ERROR', `invalid pod event type: ${row.event_type}`, 500)
+  }
+
   return {
     id: row.id,
     pod_id: row.pod_id,
-    event_type: row.event_type as PodEvent['event_type'],
+    event_type: eventType.data,
     message: row.message ?? null,
     created_at: row.created_at ?? now,
   }

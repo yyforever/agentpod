@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
+import { hasUnsafeSearchParams, validatePodId } from '@/lib/proxy-input'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -17,7 +18,16 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
   }
 
   const { id } = await params
-  const url = new URL(`/api/pods/${id}/logs`, controlPlaneBaseUrl)
+  const podId = validatePodId(id)
+  if (!podId) {
+    return Response.json({ error: 'invalid pod id' }, { status: 400 })
+  }
+
+  if (hasUnsafeSearchParams(request.nextUrl.searchParams)) {
+    return Response.json({ error: 'invalid query params' }, { status: 400 })
+  }
+
+  const url = new URL(`/api/pods/${encodeURIComponent(podId)}/logs`, controlPlaneBaseUrl)
   request.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.set(key, value)
   })

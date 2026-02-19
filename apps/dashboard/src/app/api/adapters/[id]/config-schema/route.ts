@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
+import { validatePathParam } from '@/lib/proxy-input'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -17,7 +18,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams): Promi
   }
 
   const { id } = await params
-  const url = new URL(`/api/adapters/${id}/config-schema`, controlPlaneBaseUrl)
+  const adapterId = validatePathParam(id)
+  if (!adapterId) {
+    return Response.json({ error: 'invalid adapter id' }, { status: 400 })
+  }
+
+  const url = new URL(`/api/adapters/${encodeURIComponent(adapterId)}/config-schema`, controlPlaneBaseUrl)
 
   const headers = new Headers()
   headers.set('accept', 'application/json')

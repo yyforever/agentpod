@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
+import { hasUnsafeSearchParams } from '@/lib/proxy-input'
 
 const controlPlaneBaseUrl = process.env.CONTROL_PLANE_URL ?? 'http://localhost:4000'
 
@@ -10,6 +11,10 @@ export async function GET(request: NextRequest): Promise<Response> {
   const session = await auth()
   if (!session?.user) {
     return Response.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  if (hasUnsafeSearchParams(request.nextUrl.searchParams)) {
+    return Response.json({ error: 'invalid query params' }, { status: 400 })
   }
 
   const url = new URL('/api/pods/events', controlPlaneBaseUrl)

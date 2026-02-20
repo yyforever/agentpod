@@ -24,6 +24,11 @@ packages/
 
 apps/
   control-plane/   ← 薄 HTTP 层（Hono），只做路由→服务转发
+    src/
+      routes/          API 路由（tenants/pods/adapters）
+      middleware.ts    鉴权 + 错误处理
+      index.ts         应用启动入口
+  dashboard/       ← Next.js 管理界面
   cli/             ← 命令行工具（commander.js）
 
 docs/              ← 设计文档 + 开发日志

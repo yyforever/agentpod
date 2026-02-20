@@ -105,9 +105,9 @@ docs/              ← 设计文档 + 开发日志
 - 大改动必须带测试，小修 bug 可选
 
 ### 测试位置与运行
-- Core: `packages/core/src/__tests__/` — `cd packages/core && DATABASE_URL="..." node --import tsx --test src/__tests__/*.test.ts`
-- API: `apps/control-plane/src/__tests__/` — `cd apps/control-plane && DATABASE_URL="..." node --import tsx --test src/__tests__/api.test.ts`
-- CLI: `apps/cli/src/__tests__/` — `DATABASE_URL="..." node --import tsx --test apps/cli/src/__tests__/cli.test.ts`（从 repo 根跑）
+- Core: `packages/core/src/__tests__/` — `pnpm --filter @agentpod/core build && pnpm --filter @agentpod/core test`
+- API: `apps/control-plane/src/__tests__/` — 当前无 `test` script，手动运行：`cd apps/control-plane && DATABASE_URL="..." node --import tsx --test src/__tests__/api.test.ts`
+- CLI: `apps/cli/src/__tests__/` — 当前无 `test` script，手动运行：`DATABASE_URL="..." node --import tsx --test apps/cli/src/__tests__/cli.test.ts`（从 repo 根跑）
 - 测试跑真 PostgreSQL，before hook 做 TRUNCATE
 - Mock：DockerClient（不依赖真 Docker daemon）
 

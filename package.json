@@ -8,7 +8,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "test": "pnpm --filter @agentpod/core build && pnpm --filter @agentpod/core test"
   },
   "devDependencies": {
     "tsx": "^4.16.0",

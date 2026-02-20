@@ -353,8 +353,8 @@ export const openclawAdapter: AgentAdapter = {
 
 | 存储位置 | 内容 | 说明 |
 |----------|------|------|
-| `src/adapters/openclaw.ts` | 内置 Adapter | TypeScript 代码，完整生命周期钩子 |
-| `src/adapters/open-webui.ts` | 内置 Adapter | 同上 |
+| `packages/core/src/adapters/openclaw.ts` | 内置 Adapter | TypeScript 代码，完整生命周期钩子 |
+| `packages/core/src/adapters/open-webui.ts` | 内置 Adapter | 同上 |
 | PostgreSQL `pod_configs` | 用户配置 | 每租户的自定义配置，运行时验证 |
 | PostgreSQL `pod_status` | Pod 状态 | 由调和引擎写入，Dashboard 读取 |
 

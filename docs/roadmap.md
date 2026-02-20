@@ -19,13 +19,13 @@ agentpod/
 |       |   +-- reconciler/  # 调和引擎
 |       |   +-- health/      # 健康检查
 |       |   +-- docker/      # Docker API 封装
-|       |   +-- adapters/    # Agent Adapters
-|       |       +-- openclaw.ts
-|       |       +-- open-webui.ts
-|       |       +-- index.ts
 |       +-- package.json
 |
 +-- packages/
+|   +-- core/
+|   |   +-- src/adapters/    # Agent Adapters
+|   |       +-- openclaw.ts
+|   |       +-- open-webui.ts
 |   +-- shared/              # 共享类型定义
 |       +-- src/types.ts
 |
@@ -46,7 +46,7 @@ agentpod/
 
 - [ ] 搭建 monorepo (Turborepo + pnpm)
 - [ ] 定义 AgentAdapter TypeScript 接口 (`packages/shared`)
-- [ ] 实现 OpenClaw Adapter (`apps/control-plane/src/adapters/openclaw.ts`)
+- [ ] 实现 OpenClaw Adapter (`packages/core/src/adapters/openclaw.ts`)
 - [ ] 实现 Docker API 封装 (createContainer / start / stop / rm / inspect)
 - [ ] 搭建 PostgreSQL + 执行 schema migration
 - [ ] 实现调和引擎 (Reconciliation Loop, 30s 间隔)

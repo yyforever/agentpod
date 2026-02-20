@@ -1,0 +1,125 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentpod}
+      POSTGRES_USER: ${POSTGRES_USER:-agentpod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentpod}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - agentpod-net
+
+  control-plane:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.control-plane
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://agentpod:agentpod@postgres:5432/agentpod}
+      AGENTPOD_API_KEY: ${AGENTPOD_API_KEY:-}
+      AGENTPOD_ENCRYPTION_KEY: ${AGENTPOD_ENCRYPTION_KEY:-}
+      AGENTPOD_DATA_DIR: ${AGENTPOD_DATA_DIR:-/data/pods}
+      AGENTPOD_NETWORK: ${AGENTPOD_NETWORK:-agentpod-net}
+      AGENTPOD_DOMAIN: ${AGENTPOD_DOMAIN:-localhost}
+      AGENTPOD_OPENCLAW_IMAGE: ${AGENTPOD_OPENCLAW_IMAGE:-openclaw:production}
+      PORT: 4000
+    volumes:
+      - agentpod-data:/data/pods
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentpod-api.rule=Host(`api.${AGENTPOD_DOMAIN:-localhost}`)
+      - traefik.http.routers.agentpod-api.entrypoints=web
+      - traefik.http.services.agentpod-api.loadbalancer.server.port=4000
+    networks:
+      - agentpod-net
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    restart: unless-stopped
+    environment:
+      CONTROL_PLANE_URL: ${CONTROL_PLANE_URL:-http://control-plane:4000}
+      AGENTPOD_API_KEY: ${AGENTPOD_API_KEY:-}
+      AGENTPOD_DOMAIN: ${AGENTPOD_DOMAIN:-localhost}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://dashboard.localhost}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      PORT: 3000
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentpod-dashboard.rule=Host(`dashboard.${AGENTPOD_DOMAIN:-localhost}`)
+      - traefik.http.routers.agentpod-dashboard.entrypoints=web
+      - traefik.http.services.agentpod-dashboard.loadbalancer.server.port=3000
+    networks:
+      - agentpod-net
+
+  traefik:
+    image: traefik:v3.4
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+    ports:
+      - '80:80'
+      - '8080:8080'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      dashboard:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    networks:
+      - agentpod-net
+
+volumes:
+  postgres-data:
+  agentpod-data:
+
+networks:
+  agentpod-net:
+    name: agentpod-net
+    driver: bridge

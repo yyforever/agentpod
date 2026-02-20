@@ -93,7 +93,7 @@ docs/              ← 设计文档 + 开发日志
 
 ## 环境变量
 - `DATABASE_URL` — PostgreSQL 连接串
-- `AGENTPOD_DATA_DIR` — Pod 数据目录（默认 `/data/pods`）
+- `AGENTPOD_DATA_DIR` — Pod 数据目录（默认 `/data/pods`，control-plane/cli 一致）
 - `AGENTPOD_NETWORK` — Docker 网络名（默认 `agentpod-net`）
 - `AGENTPOD_DOMAIN` — 子域名根域（默认 `localhost`）
 - `AGENTPOD_OPENCLAW_IMAGE` — OpenClaw 镜像（默认 `openclaw:production`）

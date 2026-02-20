@@ -107,7 +107,7 @@ docs/              ← 设计文档 + 开发日志
 - Mock：DockerClient（不依赖真 Docker daemon）
 
 ## 构建
-- `pnpm build`（turbo 编排，4 packages）
+- `pnpm build`（turbo 编排，5 packages）
 - 从 repo 根 `pnpm install` 安装依赖
 
 ## 常见陷阱

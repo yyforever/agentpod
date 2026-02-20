@@ -93,10 +93,17 @@ docs/              ← 设计文档 + 开发日志
 
 ## 环境变量
 - `DATABASE_URL` — PostgreSQL 连接串
+- `AGENTPOD_API_KEY` — Control Plane API 认证密钥（不设置则关闭 API 鉴权）
+- `AGENTPOD_ENCRYPTION_KEY` — Pod `gateway_token` 加密密钥（建议生产环境设置）
 - `AGENTPOD_DATA_DIR` — Pod 数据目录（默认 `/data/pods`，control-plane/cli 一致）
 - `AGENTPOD_NETWORK` — Docker 网络名（默认 `agentpod-net`）
 - `AGENTPOD_DOMAIN` — 子域名根域（默认 `localhost`）
 - `AGENTPOD_OPENCLAW_IMAGE` — OpenClaw 镜像（默认 `openclaw:production`）
+- `CONTROL_PLANE_URL` — Dashboard 访问 Control Plane 的基础 URL（默认 `http://localhost:4000`）
+- `NEXTAUTH_SECRET` — Dashboard 登录会话密钥（生产环境必填）
+- `NEXTAUTH_URL` — Dashboard 对外访问地址（默认 `http://localhost:3000`）
+- `ADMIN_USERNAME` — Dashboard 管理员用户名（默认建议 `admin`）
+- `ADMIN_PASSWORD` — Dashboard 管理员密码（必填）
 
 ## 测试策略
 - **实现和测试在同一个 agent session 完成，不分步**
